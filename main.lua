@@ -106,7 +106,7 @@ local firstShow=true
 local typing=false
 local menuVisible=false
 local typeIntro
-local _visualContainer -- FIX: forward declare for hiding during animation
+local _visualContainer
 
 local FAB=44
 local fabPos=Vector2.new(20+FAB/2,screenH*0.5)
@@ -119,9 +119,9 @@ local idleFloat
 local function startIdle() if not MOTION.idleFloat or MOTION.reduce or idleFloat then return end idleFloat=TweenService:Create(minBtn,TweenInfo.new(2.4,ES.Sine,ED.InOut,-1,true),{Rotation=2.5}) idleFloat:Play() end
 local function stopIdle() if idleFloat then idleFloat:Cancel() idleFloat=nil end Motion.to(minBtn,"rot",E.snap(),{Rotation=0}) end
 
+-- FIX 2b/2c/2e: hide visual content during show/hide animation
 local function showPanelAnimated()
 panel.Visible=true menuVisible=true setBackdrop(true) morphIcon(true)
--- FIX: hide visual content during animation to prevent scrunched text
 if _visualContainer then _visualContainer.Visible=false end
 Motion.to(pShadow,"fade",E.slow(),{ImageTransparency=0.5}) Motion.to(pStroke,"stroke",E.smooth(),{Color=C.StrkAct,Transparency=0.15})
 if firstShow then
@@ -131,21 +131,23 @@ header.Position=UDim2.new(0,0,0,-HH) Motion.to(header,"pos",ti(0.45,ES.Quint,ED.
 brand.TextTransparency,hint.TextTransparency=1,1
 task.delay(0.18,function() Motion.to(brand,"fade",E.smooth(),{TextTransparency=0}) Motion.to(hint,"fade",E.smooth(),{TextTransparency=0}) end)
 for _,id in ipairs(TABS) do navScales[id].Scale=0 navBtns[id].TextTransparency=1 end
-Motion.stagger(TABS,0.075,0.16,function(id) Motion.spring(navScales[id],1,{stiffness=240,damping=15}) Motion.to(navBtns[id],"fade",ti(0.26,ES.Quint,ED.Out),{TextTransparency=0}) end)
-task.delay(MOTION.reduce and 0.15 or 0.42,function()styleNav("M",true)end)
-task.delay(MOTION.reduce and 0.25 or 0.6,function()if firstLoad then typeIntro() end end)
+-- FIX 2a: faster stagger — start 0.08, step 0.04
+Motion.stagger(TABS,0.04,0.08,function(id) Motion.spring(navScales[id],1,{stiffness=280,damping=14}) Motion.to(navBtns[id],"fade",ti(0.20,ES.Quint,ED.Out),{TextTransparency=0}) end)
+-- FIX: faster styleNav — 0.25 instead of 0.42
+task.delay(MOTION.reduce and 0.15 or 0.25,function()styleNav("M",true)end)
+-- FIX: typeIntro at 0.5 instead of 0.6
+task.delay(MOTION.reduce and 0.25 or 0.5,function()if firstLoad then typeIntro() end end)
 else
 panelScale.Scale=0.9 panel.Position=panelTargetPos+UDim2.fromOffset(0,26)
 Motion.spring(panelScale,1,{stiffness=260,damping=18}) Motion.to(panel,"pos",E.smooth(),{Position=panelTargetPos}) Motion.to(panel,"rot",E.smooth(),{Rotation=0})
 Motion.spring(navScales[activeTab],1,{impulse=0.5})
 task.delay(0.15,function()if menuVisible then startGlow(activeTab) end end)
 end
--- FIX: show visual content after animation finishes
-task.delay(0.35,function() if menuVisible and _visualContainer then _visualContainer.Visible=true end end)
+-- FIX 2b/2c/2e: show visual content ONLY if activeTab=="V" and after 0.7s
+task.delay(0.7,function() if menuVisible and _visualContainer and activeTab=="V" then _visualContainer.Visible=true end end)
 end
 
 local function hidePanelAnimated()
--- FIX: hide visual content immediately when hiding
 if _visualContainer then _visualContainer.Visible=false end
 menuVisible=false setBackdrop(false) morphIcon(false)
 for id,_ in pairs(navGlow) do stopGlow(id) end
@@ -181,13 +183,29 @@ UserInputService.InputEnded:Connect(function(input) if input.UserInputType~=Enum
 UserInputService.InputChanged:Connect(function(input) if input.UserInputType~=Enum.UserInputType.MouseMovement and input.UserInputType~=Enum.UserInputType.Touch then return end if dragging and dragStart then local d=input.Position-dragStart panel.Position=UDim2.new(startPos.X.Scale,startPos.X.Offset+d.X,startPos.Y.Scale,startPos.Y.Offset+d.Y) panelTargetPos=panel.Position end if minDragging and minDragStart then local d=input.Position-minDragStart if d.Magnitude>6 then minMoved=true end local now=os.clock() local dt2=math.max(now-lastMinT,1/240) local cur=Vector2.new(input.Position.X,input.Position.Y) minVel=(cur-lastMinPos)/dt2 lastMinPos,lastMinT=cur,now local vp=vpSize() local pad=FAB/2+4 fabPos=Vector2.new(math.clamp(minStartPos.X+d.X,pad,vp.X-pad),math.clamp(minStartPos.Y+d.Y,pad,vp.Y-pad)) Motion.kill(minBtn,"pos") minBtn.Position=UDim2.fromOffset(fabPos.X,fabPos.Y) end end)
 UserInputService.InputBegan:Connect(function(input,processed) if processed then return end if input.KeyCode==Enum.KeyCode.RightShift then toggleMenu() end end)
 
+-- FIX 2d: 1 blink instead of 3
+-- FIX 2f: slower typing — 0.08 per char, 0.04 space, 0.2 comma, 0.25 exclamation
 function typeIntro()
 typing=true frontLabel.Text="" frontLabel.TextSize=18 frontLabel.TextTransparency=0 frontLabel.Position=UDim2.fromScale(0.5,0.5) backLabel.TextTransparency=1
 local raw=LocalPlayer.DisplayName if not raw or raw=="" then raw=LocalPlayer.Name end raw=tostring(raw):gsub("[^%w%s_%.%-]","")
 local full,built="Welcome, "..raw.."!",""
-for i=1,#full do if not typing then return end local ch=full:sub(i,i) built=built..ch frontLabel.Text=built.."_" local w=0.055 if ch==" " then w=0.028 elseif ch=="," then w=0.16 elseif ch=="!" then w=0.2 end task.wait(w*MOTION.speed) end
-for _=1,3 do if not typing then frontLabel.Text=full return end frontLabel.Text=full.."_" task.wait(0.2) frontLabel.Text=full task.wait(0.2) end
-frontLabel.Text=full typing=false
+for i=1,#full do
+if not typing then return end
+local ch=full:sub(i,i)
+built=built..ch
+frontLabel.Text=built.."_"
+local w=0.08
+if ch==" " then w=0.04
+elseif ch=="," then w=0.2
+elseif ch=="!" then w=0.25 end
+task.wait(w*MOTION.speed)
+end
+-- FIX: single blink
+if not typing then frontLabel.Text=full return end
+frontLabel.Text=full.."_"
+task.wait(0.3)
+frontLabel.Text=full
+typing=false
 end
 
 local function tweenBar(target,dur) Motion.to(barFill,"size",ti(dur,ES.Quint,ED.Out),{Size=UDim2.new(target,0,1,0)}) task.wait(dur*MOTION.speed) end
@@ -196,7 +214,8 @@ local conns={}
 local ok,err=pcall(function()
 Motion.spring(welcomeScale,1,{stiffness=190,damping=17}) Motion.to(welcome,"pos",ti(0.5,ES.Quint,ED.Out),{Position=welcomeTargetPos}) Motion.to(welcome,"rot",ti(0.6,ES.Quint,ED.Out),{Rotation=0}) Motion.to(wShadow,"fade",E.slow(),{ImageTransparency=0.5})
 Motion.stagger({wTitle,wCredit,barBack,wPct},0.08,0.12,function(obj) if obj==barBack then Motion.to(obj,"fade",E.smooth(),{BackgroundTransparency=0}) else Motion.to(obj,"fade",E.smooth(),{TextTransparency=0}) end if obj.Parent and obj:IsA("TextLabel") then obj.Position=obj.Position+UDim2.fromOffset(0,6) Motion.to(obj,"pos",E.smooth(),{Position=obj.Position-UDim2.fromOffset(0,6)}) end end)
-task.delay(0.34,function() Motion.spring(minScale,1,{stiffness=240,damping=15}) task.delay(0.45,startIdle) end)
+-- FIX 1: REMOVED trigger button spring from here (was at 0.34s)
+-- It now appears AFTER the panel shows (below)
 local shown=0
 conns[#conns+1]=RunService.RenderStepped:Connect(function(dt) local actual=barFill.Size.X.Scale shown=shown+(actual-shown)*math.min(dt*9,1) wPct.Text=string.format("Loading... %d%%",math.floor(shown*100+0.5)) wPct.TextColor3=C.TxtBrt:Lerp(C.BarDone,shown) if MOTION.shimmer and not MOTION.reduce then shimmer.BackgroundTransparency=(actual>0.02) and 0 or 1 end end)
 if MOTION.shimmer and not MOTION.reduce then task.spawn(function() while shimmer.Parent do local w=barBack.AbsoluteSize.X shimmer.Position=UDim2.new(0,-70,0,0) Motion.to(shimmer,"sweep",TweenInfo.new(1.1,ES.Sine,ED.InOut),{Position=UDim2.new(0,(w>0 and w or WW-60)+10,0,0)}) task.wait(1.5) end end) end
@@ -204,7 +223,15 @@ tweenBar(0.15,0.8) task.wait(0.4*MOTION.speed) tweenBar(0.35,0.7) task.wait(0.5*
 Motion.to(barFill,"color",E.snap(),{BackgroundColor3=C.BarDone}) Motion.press(pctScale,-0.12) task.wait(0.3*MOTION.speed)
 for _,c in ipairs(conns) do c:Disconnect() end conns={}
 local snap=snapshot(welcome) fadeSnapshot(snap,ti(0.35,ES.Quint,ED.In),true) Motion.to(welcomeScale,"scale",ti(0.35,ES.Quint,ED.In),{Scale=0.88}) Motion.to(welcome,"rot",ti(0.35,ES.Quint,ED.In),{Rotation=-1.5})
-task.delay(0.14,showPanelAnimated) task.delay(0.5,function()if welcome then welcome:Destroy() end end)
+-- FIX 1: show panel, THEN show trigger button after 0.4s
+task.delay(0.14,function()
+showPanelAnimated()
+task.delay(0.4,function()
+Motion.spring(minScale,1,{stiffness=240,damping=15})
+task.delay(0.45,startIdle)
+end)
+end)
+task.delay(0.5,function()if welcome then welcome:Destroy() end end)
 end)
 if not ok then for _,c in ipairs(conns) do c:Disconnect() end pcall(function() writefile("Error.txt",os.date().."\nBOOT: "..tostring(err).."\n"..debug.traceback()) end) warn("[gw.cc] Boot: "..tostring(err)) end
 end)
@@ -396,7 +423,7 @@ local function saveErr(msg) pcall(function() writefile("Error.txt",os.date("%Y-%
 local ok2,err2=pcall(function()
 local visual=buildVisualTab(content)
 visual.container.ZIndex=3
-_visualContainer=visual.container -- FIX: set for hide/show during animation
+_visualContainer=visual.container
 navBtns["V"].Activated:Connect(function()visual.container.Visible=true end)
 navBtns["M"].Activated:Connect(function()visual.container.Visible=false end)
 navBtns["C"].Activated:Connect(function()visual.container.Visible=false end)
