@@ -1,7 +1,6 @@
 --[[
-    gw.cc | All-in-One + ESP v2
-    Written by ENI for LO
-    Fixes: lobby/cutscene detection, window ESP, health status colors
+    gw.cc | All-in-One + ESP v3
+    Fixes: lobby detection (Killer tag check), window→VaultPoint tag
 --]]
 
 local Players=game:GetService("Players")
@@ -240,8 +239,6 @@ local TRK_OFF=Color3.fromRGB(28,28,38) local TRK_ON=Color3.fromRGB(60,60,90) loc
 local KNB_OFF=Color3.fromRGB(180,180,195) local KNB_ON=Color3.fromRGB(228,228,232) local KNOB_L,KNOB_R=11,29
 local SQ_EDGE=Color3.fromRGB(40,40,50) local TRACK_BG=Color3.fromRGB(24,24,32)
 local DEFAULT_COLORS={killer=Color3.fromRGB(255,0,0),survivor=Color3.fromRGB(0,100,255),pallet=Color3.fromRGB(255,165,0),window=Color3.fromRGB(255,255,255),generator=Color3.fromRGB(255,255,0),hook=Color3.fromRGB(139,69,19),zombie=Color3.fromRGB(128,0,128)}
-
--- FIX 3: added healthHealthy and healthInjured to survivor
 local Settings={esp={killer={enabled=false,name=false,distance=false,outline={enabled=true,color=DEFAULT_COLORS.killer},fill={enabled=false,color=DEFAULT_COLORS.killer}},survivor={enabled=false,name=false,distance=false,healthStatus=false,outline={enabled=true,color=DEFAULT_COLORS.survivor},fill={enabled=false,color=DEFAULT_COLORS.survivor},healthHealthy={enabled=true,color=Color3.fromRGB(0,255,0)},healthInjured={enabled=true,color=Color3.fromRGB(255,0,0)}},pallet={enabled=false,name=false,distance=false,outline={enabled=true,color=DEFAULT_COLORS.pallet},fill={enabled=false,color=DEFAULT_COLORS.pallet}},window={enabled=false,name=false,distance=false,outline={enabled=true,color=DEFAULT_COLORS.window},fill={enabled=false,color=DEFAULT_COLORS.window}},generator={enabled=false,name=false,distance=false,progress=false,outline={enabled=true,color=DEFAULT_COLORS.generator},fill={enabled=false,color=DEFAULT_COLORS.generator}},hook={enabled=false,name=false,distance=false,outline={enabled=true,color=DEFAULT_COLORS.hook},fill={enabled=false,color=DEFAULT_COLORS.hook}},zombie={enabled=false,name=false,distance=false,outline={enabled=true,color=DEFAULT_COLORS.zombie},fill={enabled=false,color=DEFAULT_COLORS.zombie}}},render={fov=70,brightness=50,noFog=false}}
 
 local function round(inst,r) local c=Instance.new("UICorner") c.CornerRadius=(typeof(r)=="UDim") and r or UDim.new(0,r or 6) c.Parent=inst return c end
@@ -396,7 +393,6 @@ if not TOUCH then hit.MouseEnter:Connect(function()api.hovering=true mspring(hsc
 paint(false) return api
 end
 
--- FIX 3: added Healthy Color + Injured Color for survivor
 local function createESPSection(parent,name,defaultColor,hasHealthStatus,hasProgress,settings_ref)
 local acc=createAccordion(parent,name,true,false,13)
 if acc.toggle then acc.toggle.onToggle=function(on) settings_ref.enabled=on end end
@@ -444,20 +440,20 @@ end)
 if not ok2 then saveErr("WIRE: "..tostring(err2)) end
 
 --============================================================
--- ESP SYSTEM v2
+-- ESP SYSTEM v3
 --============================================================
 local espObjects={}
 local espConn
 local espTimer=0
 
--- FIX 1: proper lobby/cutscene detection
+-- FIX 1: check for Killer tagged player (no killer = lobby)
 local function espInGame()
     if LocalPlayer:GetAttribute("killerend") then return false end
     local char=LocalPlayer.Character
     if not char or not char.Parent then return false end
     local cam=workspace.CurrentCamera
     if cam and cam.CameraType~=Enum.CameraType.Custom then return false end
-    if #CollectionService:GetTagged("pallet")==0 and #CollectionService:GetTagged("Generator")==0 and #CollectionService:GetTagged("Spike")==0 then return false end
+    if #CollectionService:GetTagged("Killer")==0 then return false end
     return true
 end
 
@@ -526,7 +522,6 @@ local function espUpdate(obj,type,cfg)
         return
     end
     entry.highlight.Enabled=true
-    -- FIX 3: health status uses healthy/injured colors
     local fillColor=cfg.fill.color
     if type=="survivor" and cfg.healthStatus then
         if obj:GetAttribute("Knocked") then
@@ -579,8 +574,8 @@ local function espScan()
         end
     end
     for _,obj in ipairs(CollectionService:GetTagged("pallet")) do seen[obj]=true espUpdate(obj,"pallet",Settings.esp.pallet) end
-    -- FIX 2: highlight the tagged part directly, not parent model
-    for _,part in ipairs(CollectionService:GetTagged("window")) do
+    -- FIX 2: use VaultPoint tag instead of window
+    for _,part in ipairs(CollectionService:GetTagged("VaultPoint")) do
         seen[part]=true
         espUpdate(part,"window",Settings.esp.window)
     end
