@@ -122,7 +122,6 @@ local function stopIdle() if idleFloat then idleFloat:Cancel() idleFloat=nil end
 local function showPanelAnimated()
 panel.Visible=true menuVisible=true setBackdrop(true) morphIcon(true)
 if _visualContainer then _visualContainer.Visible=false end
-local isFirst=firstShow
 Motion.to(pShadow,"fade",E.slow(),{ImageTransparency=0.5}) Motion.to(pStroke,"stroke",E.smooth(),{Color=C.StrkAct,Transparency=0.15})
 if firstShow then
 firstShow=false panelScale.Scale=0.84 panel.Position=panelTargetPos+UDim2.fromOffset(0,44) panel.Rotation=1.5
@@ -140,7 +139,8 @@ Motion.spring(panelScale,1,{stiffness=260,damping=18}) Motion.to(panel,"pos",E.s
 Motion.spring(navScales[activeTab],1,{impulse=0.5})
 task.delay(0.15,function()if menuVisible then startGlow(activeTab) end end)
 end
-task.delay(isFirst and 0.7 or 0.15,function() if menuVisible and _visualContainer and activeTab=="V" then _visualContainer.Visible=true end end)
+-- DYNAMIC: wait until panel scale reaches 0.985 (animation settled), then show visual content
+task.spawn(function() while menuVisible and panelScale and panelScale.Parent do if panelScale.Scale>0.985 then break end task.wait(0.02) end if menuVisible and _visualContainer and activeTab=="V" then _visualContainer.Visible=true end end)
 end
 
 local function hidePanelAnimated()
