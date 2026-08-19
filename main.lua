@@ -1,6 +1,6 @@
 --[[
-    gw.cc | All-in-One + ESP v4
-    Fixes: per-frame inGame check, window ESP with Adornee
+    gw.cc | All-in-One + ESP v5
+    Fixes: Killer player check for lobby, window Model highlight without Adornee
 --]]
 
 local Players=game:GetService("Players")
@@ -440,21 +440,26 @@ end)
 if not ok2 then saveErr("WIRE: "..tostring(err2)) end
 
 --============================================================
--- ESP SYSTEM v4
+-- ESP SYSTEM v5
 --============================================================
 local espObjects={}
 local espConn
 local espTimer=0
 
--- FIX 1: check for killer tagged player (no killer = not in game)
+-- FIX 1: check for "Killer" tagged PLAYER CHARACTER (not just any object)
 local function espInGame()
     if LocalPlayer:GetAttribute("killerend") then return false end
     local char=LocalPlayer.Character
     if not char or not char.Parent then return false end
     local cam=workspace.CurrentCamera
     if cam and cam.CameraType~=Enum.CameraType.Custom then return false end
-    if #CollectionService:GetTagged("Killer")==0 then return false end
-    return true
+    -- Look for a Killer tagged object that belongs to a real player (any player, including self)
+    for _,obj in ipairs(CollectionService:GetTagged("Killer")) do
+        if obj and obj.Parent and Players:GetPlayerFromCharacter(obj) then
+            return true -- Active killer player found → game is running
+        end
+    end
+    return false -- No active killer player → lobby or between rounds
 end
 
 local function espCureActive()
@@ -487,8 +492,8 @@ local function espName(obj,type)
     return type:sub(1,1):upper()..type:sub(2)
 end
 
--- FIX 2: espUpdate now accepts optional adornee parameter
-local function espUpdate(obj,type,cfg,adornee)
+-- FIX 2: removed adornee parameter, highlight parent model directly
+local function espUpdate(obj,type,cfg)
     if not obj or not obj.Parent then return end
     for _,tag in ipairs(CollectionService:GetTags(obj)) do
         if tag=="NoHighlight" then return end
@@ -498,7 +503,6 @@ local function espUpdate(obj,type,cfg,adornee)
     if not entry.highlight then
         entry.highlight=Instance.new("Highlight")
         entry.highlight.Name="gwcc_ESP"
-        if adornee then entry.highlight.Adornee=adornee end
         entry.highlight.Parent=obj
     end
     if not entry.billboard then
@@ -555,7 +559,6 @@ local function espRemove(obj)
 end
 
 local function espScan()
-    if not espInGame() then return end
     local seen={}
     for _,obj in ipairs(CollectionService:GetTagged("Killer")) do
         if obj~=LocalPlayer.Character then seen[obj]=true espUpdate(obj,"killer",Settings.esp.killer) end
@@ -570,20 +573,20 @@ local function espScan()
         end
     end
     for _,obj in ipairs(CollectionService:GetTagged("pallet")) do seen[obj]=true espUpdate(obj,"pallet",Settings.esp.pallet) end
-    -- FIX 2: highlight parent Window model with Adornee on tagged part (both tags)
+    -- FIX 2: highlight parent Window Model directly (both tags)
     local windowSeen={}
     for _,part in ipairs(CollectionService:GetTagged("window")) do
         local model=part.Parent
-        if model and not windowSeen[model] then
+        if model and model:IsA("Model") and not windowSeen[model] then
             windowSeen[model]=true seen[model]=true
-            espUpdate(model,"window",Settings.esp.window,part)
+            espUpdate(model,"window",Settings.esp.window)
         end
     end
     for _,part in ipairs(CollectionService:GetTagged("VaultPoint")) do
         local model=part.Parent
-        if model and not windowSeen[model] then
+        if model and model:IsA("Model") and not windowSeen[model] then
             windowSeen[model]=true seen[model]=true
-            espUpdate(model,"window",Settings.esp.window,part)
+            espUpdate(model,"window",Settings.esp.window)
         end
     end
     for _,obj in ipairs(CollectionService:GetTagged("Generator")) do
@@ -598,7 +601,7 @@ local function espScan()
     end
 end
 
--- FIX 1: check espInGame() EVERY FRAME (not just every 30 frames)
+-- FIX 1: check espInGame() EVERY FRAME
 espConn=RunService.RenderStepped:Connect(function()
     local inGame=espInGame()
     if not inGame then
