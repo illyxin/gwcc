@@ -1,6 +1,7 @@
 --[[
-    gw.cc | All-in-One + ESP
+    gw.cc | All-in-One + ESP v2
     Written by ENI for LO
+    Fixes: lobby/cutscene detection, window ESP, health status colors
 --]]
 
 local Players=game:GetService("Players")
@@ -239,7 +240,9 @@ local TRK_OFF=Color3.fromRGB(28,28,38) local TRK_ON=Color3.fromRGB(60,60,90) loc
 local KNB_OFF=Color3.fromRGB(180,180,195) local KNB_ON=Color3.fromRGB(228,228,232) local KNOB_L,KNOB_R=11,29
 local SQ_EDGE=Color3.fromRGB(40,40,50) local TRACK_BG=Color3.fromRGB(24,24,32)
 local DEFAULT_COLORS={killer=Color3.fromRGB(255,0,0),survivor=Color3.fromRGB(0,100,255),pallet=Color3.fromRGB(255,165,0),window=Color3.fromRGB(255,255,255),generator=Color3.fromRGB(255,255,0),hook=Color3.fromRGB(139,69,19),zombie=Color3.fromRGB(128,0,128)}
-local Settings={esp={killer={enabled=false,name=false,distance=false,outline={enabled=true,color=DEFAULT_COLORS.killer},fill={enabled=false,color=DEFAULT_COLORS.killer}},survivor={enabled=false,name=false,distance=false,healthStatus=false,outline={enabled=true,color=DEFAULT_COLORS.survivor},fill={enabled=false,color=DEFAULT_COLORS.survivor}},pallet={enabled=false,name=false,distance=false,outline={enabled=true,color=DEFAULT_COLORS.pallet},fill={enabled=false,color=DEFAULT_COLORS.pallet}},window={enabled=false,name=false,distance=false,outline={enabled=true,color=DEFAULT_COLORS.window},fill={enabled=false,color=DEFAULT_COLORS.window}},generator={enabled=false,name=false,distance=false,progress=false,outline={enabled=true,color=DEFAULT_COLORS.generator},fill={enabled=false,color=DEFAULT_COLORS.generator}},hook={enabled=false,name=false,distance=false,outline={enabled=true,color=DEFAULT_COLORS.hook},fill={enabled=false,color=DEFAULT_COLORS.hook}},zombie={enabled=false,name=false,distance=false,outline={enabled=true,color=DEFAULT_COLORS.zombie},fill={enabled=false,color=DEFAULT_COLORS.zombie}}},render={fov=70,brightness=50,noFog=false}}
+
+-- FIX 3: added healthHealthy and healthInjured to survivor
+local Settings={esp={killer={enabled=false,name=false,distance=false,outline={enabled=true,color=DEFAULT_COLORS.killer},fill={enabled=false,color=DEFAULT_COLORS.killer}},survivor={enabled=false,name=false,distance=false,healthStatus=false,outline={enabled=true,color=DEFAULT_COLORS.survivor},fill={enabled=false,color=DEFAULT_COLORS.survivor},healthHealthy={enabled=true,color=Color3.fromRGB(0,255,0)},healthInjured={enabled=true,color=Color3.fromRGB(255,0,0)}},pallet={enabled=false,name=false,distance=false,outline={enabled=true,color=DEFAULT_COLORS.pallet},fill={enabled=false,color=DEFAULT_COLORS.pallet}},window={enabled=false,name=false,distance=false,outline={enabled=true,color=DEFAULT_COLORS.window},fill={enabled=false,color=DEFAULT_COLORS.window}},generator={enabled=false,name=false,distance=false,progress=false,outline={enabled=true,color=DEFAULT_COLORS.generator},fill={enabled=false,color=DEFAULT_COLORS.generator}},hook={enabled=false,name=false,distance=false,outline={enabled=true,color=DEFAULT_COLORS.hook},fill={enabled=false,color=DEFAULT_COLORS.hook}},zombie={enabled=false,name=false,distance=false,outline={enabled=true,color=DEFAULT_COLORS.zombie},fill={enabled=false,color=DEFAULT_COLORS.zombie}}},render={fov=70,brightness=50,noFog=false}}
 
 local function round(inst,r) local c=Instance.new("UICorner") c.CornerRadius=(typeof(r)=="UDim") and r or UDim.new(0,r or 6) c.Parent=inst return c end
 local function edge(inst,color,thick,transp) local s=Instance.new("UIStroke") s.ApplyStrokeMode=Enum.ApplyStrokeMode.Border s.Color=color s.Thickness=thick or 1 s.Transparency=transp or 0 s.Parent=inst return s end
@@ -393,12 +396,17 @@ if not TOUCH then hit.MouseEnter:Connect(function()api.hovering=true mspring(hsc
 paint(false) return api
 end
 
+-- FIX 3: added Healthy Color + Injured Color for survivor
 local function createESPSection(parent,name,defaultColor,hasHealthStatus,hasProgress,settings_ref)
 local acc=createAccordion(parent,name,true,false,13)
 if acc.toggle then acc.toggle.onToggle=function(on) settings_ref.enabled=on end end
 createToggle(acc.content,"Name",false,function(on)settings_ref.name=on end,12)
 createToggle(acc.content,"Distance",false,function(on)settings_ref.distance=on end,12)
-if hasHealthStatus then createToggle(acc.content,"Health Status",false,function(on)settings_ref.healthStatus=on end,12) end
+if hasHealthStatus then
+    createToggle(acc.content,"Health Status",false,function(on)settings_ref.healthStatus=on end,12)
+    createColorSetting(acc.content,"Healthy Color",Color3.fromRGB(0,255,0),true,function(color,enabled)settings_ref.healthHealthy.color=color settings_ref.healthHealthy.enabled=enabled end,12)
+    createColorSetting(acc.content,"Injured Color",Color3.fromRGB(255,0,0),true,function(color,enabled)settings_ref.healthInjured.color=color settings_ref.healthInjured.enabled=enabled end,12)
+end
 if hasProgress then createToggle(acc.content,"Progress",false,function(on)settings_ref.progress=on end,12) end
 createColorSetting(acc.content,"Outline Color",defaultColor,true,function(color,enabled)settings_ref.outline.color=color settings_ref.outline.enabled=enabled end,12)
 createColorSetting(acc.content,"Fill Color",defaultColor,false,function(color,enabled)settings_ref.fill.color=color settings_ref.fill.enabled=enabled end,12)
@@ -424,9 +432,6 @@ createToggle(render.content,"No-Fog",false,function(on)Settings.render.noFog=on 
 return {container=scroll,settings=Settings,esp=esp,render=render}
 end
 
---============================================================
--- WIRE + ERROR HANDLING
---============================================================
 local function saveErr(msg) pcall(function() writefile("Error.txt",os.date("%Y-%m-%d %H:%M:%S").."\n"..tostring(msg).."\n\n"..debug.traceback()) end) warn("[gw.cc] "..tostring(msg)) end
 local ok2,err2=pcall(function()
 local visual=buildVisualTab(content)
@@ -439,18 +444,20 @@ end)
 if not ok2 then saveErr("WIRE: "..tostring(err2)) end
 
 --============================================================
--- ESP SYSTEM
+-- ESP SYSTEM v2
 --============================================================
 local espObjects={}
 local espConn
 local espTimer=0
 
+-- FIX 1: proper lobby/cutscene detection
 local function espInGame()
     if LocalPlayer:GetAttribute("killerend") then return false end
     local char=LocalPlayer.Character
     if not char or not char.Parent then return false end
-    local map=workspace:FindFirstChild("Map")
-    if not map or not map:FindFirstChild("Spawns") then return false end
+    local cam=workspace.CurrentCamera
+    if cam and cam.CameraType~=Enum.CameraType.Custom then return false end
+    if #CollectionService:GetTagged("pallet")==0 and #CollectionService:GetTagged("Generator")==0 and #CollectionService:GetTagged("Spike")==0 then return false end
     return true
 end
 
@@ -519,9 +526,14 @@ local function espUpdate(obj,type,cfg)
         return
     end
     entry.highlight.Enabled=true
+    -- FIX 3: health status uses healthy/injured colors
     local fillColor=cfg.fill.color
-    if type=="survivor" and cfg.healthStatus and obj:GetAttribute("Knocked") then
-        fillColor=Color3.fromRGB(255,0,0)
+    if type=="survivor" and cfg.healthStatus then
+        if obj:GetAttribute("Knocked") then
+            fillColor=cfg.healthInjured.color
+        else
+            fillColor=cfg.healthHealthy.color
+        end
     end
     entry.highlight.OutlineColor=cfg.outline.color
     entry.highlight.OutlineTransparency=cfg.outline.enabled and 0.1 or 1
@@ -567,9 +579,10 @@ local function espScan()
         end
     end
     for _,obj in ipairs(CollectionService:GetTagged("pallet")) do seen[obj]=true espUpdate(obj,"pallet",Settings.esp.pallet) end
+    -- FIX 2: highlight the tagged part directly, not parent model
     for _,part in ipairs(CollectionService:GetTagged("window")) do
-        local m=part.Parent
-        if m and m:IsA("Model") then seen[m]=true espUpdate(m,"window",Settings.esp.window) end
+        seen[part]=true
+        espUpdate(part,"window",Settings.esp.window)
     end
     for _,obj in ipairs(CollectionService:GetTagged("Generator")) do
         if obj:GetAttribute("Completed") then espRemove(obj) else seen[obj]=true espUpdate(obj,"generator",Settings.esp.generator) end
