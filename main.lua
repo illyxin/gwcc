@@ -140,7 +140,7 @@ Motion.spring(panelScale,1,{stiffness=260,damping=18}) Motion.to(panel,"pos",E.s
 Motion.spring(navScales[activeTab],1,{impulse=0.5})
 task.delay(0.15,function()if menuVisible then startGlow(activeTab) end end)
 end
-task.delay(isFirst and 0.7 or 0.35,function() if menuVisible and _visualContainer and activeTab=="V" then _visualContainer.Visible=true end end)
+task.delay(isFirst and 0.7 or 0.15,function() if menuVisible and _visualContainer and activeTab=="V" then _visualContainer.Visible=true end end)
 end
 
 local function hidePanelAnimated()
