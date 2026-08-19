@@ -1,7 +1,6 @@
 --[[
     gw.cc | All-in-One v1.0
     Single file — no modules, no downloads.
-    Run in Delta: loadstring(game:HttpGet("RAW_URL"))()
     Written by ENI for LO
 --]]
 
@@ -465,8 +464,12 @@ end
 --============================================================
 -- STATE
 --============================================================
-local activeTab = "M", firstLoad = true, firstShow = true
-local typing = false, menuVisible = false, typeIntro
+local activeTab = "M"
+local firstLoad = true
+local firstShow = true
+local typing = false
+local menuVisible = false
+local typeIntro
 
 --============================================================
 -- FAB
@@ -817,7 +820,7 @@ gui.Destroying:Connect(function()
 end)
 
 --============================================================
--- UI TABLE (local, not returned)
+-- UI TABLE
 --============================================================
 local UI = {
     gui = gui, panel = panel, body = body, nav = nav, content = content,
@@ -843,7 +846,6 @@ local GuiSvc = GuiService
 local UIS = UserInputService
 local TOUCH = IS_TOUCH
 
--- Component ti that accepts string easing names
 local function cti(d, style, dir)
     local st = Enum.EasingStyle[style] or ES.Quint
     local dr = Enum.EasingDirection[dir] or ED.Out
@@ -1032,7 +1034,7 @@ local function createAccordion(parent, name, hasToggle, defaultExpanded, textSiz
         Name = "Accordion_"..tostring(name), Size = UDim2.new(1, 0, 0, 36),
         BackgroundTransparency = 1, ClipsDescendants = true,
     }, parent)
-    local header = new("Frame", {
+    local headerF = new("Frame", {
         Name = "Header", BackgroundTransparency = 1,
         Size = UDim2.new(1, 0, 0, 36), ZIndex = 2,
     }, container)
@@ -1043,17 +1045,17 @@ local function createAccordion(parent, name, hasToggle, defaultExpanded, textSiz
         Font = FONT, TextSize = 10,
         Position = UDim2.new(0, 8, 0, 0), Size = UDim2.fromOffset(20, 36),
         Rotation = expanded and 0 or -90, ZIndex = 3,
-    }, header)
+    }, headerF)
     local asc = scaleOf(arrow, 1)
     local title = new("TextLabel", {
         Name = "Title", BackgroundTransparency = 1, Text = tostring(name),
         TextColor3 = C.TxtPri, TextXAlignment = Enum.TextXAlignment.Left,
         Font = FONT, TextSize = textSize or 13,
         Position = UDim2.new(0, 30, 0, 0), Size = UDim2.new(1, -80, 1, 0), ZIndex = 3,
-    }, header)
+    }, headerF)
     local sw
     if withToggle then
-        sw = makeSwitch(header, { default = false, onToggle = onToggle, rightPad = 54, zIndex = 4 })
+        sw = makeSwitch(headerF, { default = false, onToggle = onToggle, rightPad = 54, zIndex = 4 })
     end
     local contentFrame = new("Frame", {
         Name = "Content", BackgroundTransparency = 1,
@@ -1067,7 +1069,7 @@ local function createAccordion(parent, name, hasToggle, defaultExpanded, textSiz
     local order = 0
     contentFrame.ChildAdded:Connect(function(ch)
         if ch:IsA("GuiObject") and ch.LayoutOrder == 0 then
-            order += 1; ch.LayoutOrder = order
+            order = order + 1; ch.LayoutOrder = order
         end
     end)
     local function measured() return math.max(0, layout.AbsoluteContentSize.Y + 6) end
@@ -1086,7 +1088,7 @@ local function createAccordion(parent, name, hasToggle, defaultExpanded, textSiz
     layout:GetPropertyChangedSignal("AbsoluteContentSize"):Connect(function()
         if expanded then apply(true) end
     end)
-    local acc = { frame = container, content = contentFrame, header = header, toggle = sw }
+    local acc = { frame = container, content = contentFrame, header = headerF, toggle = sw }
     function acc.isExpanded() return expanded end
     function acc.setExpanded(on, animate)
         on = on and true or false; expanded = on; animate = animate ~= false
@@ -1107,7 +1109,7 @@ local function createAccordion(parent, name, hasToggle, defaultExpanded, textSiz
         end
         return expanded
     end
-    function acc.addRow(inst) order += 1; inst.LayoutOrder = order; inst.Parent = contentFrame; return inst end
+    function acc.addRow(inst) order = order + 1; inst.LayoutOrder = order; inst.Parent = contentFrame; return inst end
     function acc.refresh() apply(true) end
     arrow.MouseButton1Click:Connect(function()
         mpress(asc, 0.08); acc.setExpanded(not expanded, true)
@@ -1229,7 +1231,9 @@ local function openPicker(cfg)
         TextColor3 = C.TxtPri, TextXAlignment = Enum.TextXAlignment.Left,
         Text = "Enabled", Size = UDim2.new(1, -50, 1, 0), ZIndex = 103,
     }, enRow)
-    local conns = {}; local dragging = nil; local closing = false
+    local conns = {}
+    local dragging2 = nil
+    local closing = false
     local cachedOffset = screenOffset()
     local function push(smooth)
         local col = Color3.fromHSV(h, s, v)
@@ -1262,15 +1266,15 @@ local function openPicker(cfg)
         push(true)
     end
     table.insert(conns, svHit.InputBegan:Connect(function(i)
-        if isPointer(i) then dragging = "sv"; fromSV(i.Position) end end))
+        if isPointer(i) then dragging2 = "sv"; fromSV(i.Position) end end))
     table.insert(conns, hueHit.InputBegan:Connect(function(i)
-        if isPointer(i) then dragging = "hue"; fromHue(i.Position) end end))
+        if isPointer(i) then dragging2 = "hue"; fromHue(i.Position) end end))
     table.insert(conns, UIS.InputChanged:Connect(function(i)
-        if not dragging or not isMove(i) then return end
-        if dragging == "sv" then fromSV(i.Position) else fromHue(i.Position) end
+        if not dragging2 or not isMove(i) then return end
+        if dragging2 == "sv" then fromSV(i.Position) else fromHue(i.Position) end
     end))
     table.insert(conns, UIS.InputEnded:Connect(function(i)
-        if isPointer(i) then dragging = nil end end))
+        if isPointer(i) then dragging2 = nil end end))
     local api = {}
     function api.close()
         if closing then return end
@@ -1409,7 +1413,7 @@ local function createSlider(parent, name, minV, maxV, default, suffix, onValueCh
         Position = UDim2.new(0, 14, 0, 18), Size = UDim2.new(1, -28, 0, 22), ZIndex = 5,
     }, row)
     local value = math.clamp(default or minV, minV, maxV)
-    local dragging = false
+    local dragging3 = false
     local function quantize(x)
         if (maxV - minV) >= 5 then return math.floor(x + 0.5) end
         return math.floor(x * 100 + 0.5) / 100
@@ -1446,21 +1450,21 @@ local function createSlider(parent, name, minV, maxV, default, suffix, onValueCh
     end
     hit.InputBegan:Connect(function(i)
         if not isPointer(i) then return end
-        dragging = true; mpress(hsc, 0.15); fromX(i.Position.X)
+        dragging3 = true; mpress(hsc, 0.15); fromX(i.Position.X)
     end)
     local moveConn = UIS.InputChanged:Connect(function(i)
-        if dragging and isMove(i) then fromX(i.Position.X) end
+        if dragging3 and isMove(i) then fromX(i.Position.X) end
     end)
     local endConn = UIS.InputEnded:Connect(function(i)
-        if dragging and isPointer(i) then
-            dragging = false
+        if dragging3 and isPointer(i) then
+            dragging3 = false
             mspring(hsc, (not TOUCH and api.hovering) and 1.15 or 1)
         end
     end)
     row.Destroying:Connect(function() moveConn:Disconnect(); endConn:Disconnect() end)
     if not TOUCH then
         hit.MouseEnter:Connect(function() api.hovering = true; mspring(hsc, 1.15) end)
-        hit.MouseLeave:Connect(function() api.hovering = false; if not dragging then mspring(hsc, 1) end end)
+        hit.MouseLeave:Connect(function() api.hovering = false; if not dragging3 then mspring(hsc, 1) end end)
     end
     paint(false)
     return api
