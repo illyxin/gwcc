@@ -139,7 +139,6 @@ Motion.spring(panelScale,1,{stiffness=260,damping=18}) Motion.to(panel,"pos",E.s
 Motion.spring(navScales[activeTab],1,{impulse=0.5})
 task.delay(0.15,function()if menuVisible then startGlow(activeTab) end end)
 end
--- DYNAMIC: wait until panel scale reaches 0.985 (animation settled), then show visual content
 task.spawn(function() while menuVisible and panelScale and panelScale.Parent do if panelScale.Scale>0.985 then break end task.wait(0.02) end if menuVisible and _visualContainer and activeTab=="V" then _visualContainer.Visible=true end end)
 end
 
@@ -281,12 +280,30 @@ local asc=scaleOf(arrow,1)
 local title=new("TextLabel",{Name="Title",BackgroundTransparency=1,Text=tostring(name),TextColor3=C.TxtPri,TextXAlignment=Enum.TextXAlignment.Left,Font=FONT,TextSize=textSize or 13,Position=UDim2.new(0,30,0,0),Size=UDim2.new(1,-80,1,0),ZIndex=3},headerF)
 local sw
 if withToggle then sw=makeSwitch(headerF,{default=false,onToggle=onToggle,rightPad=54,zIndex=4}) end
-local contentFrame=new("Frame",{Name="Content",BackgroundTransparency=1,Position=UDim2.new(0,0,0,36),Size=UDim2.new(1,0,0,0),ClipsDescendants=true,ZIndex=2},container)
+local contentFrame=new("Frame",{Name="Content",BackgroundTransparency=1,Position=UDim2.new(0,0,0,36),Size=UDim2.new(1,0,0,0),ClipsDescendants=true,ZIndex=2,Visible=false},container)
 local layout=new("UIListLayout",{SortOrder=Enum.SortOrder.LayoutOrder,Padding=UDim.new(0,2),FillDirection=Enum.FillDirection.Vertical},contentFrame)
 local order=0
 contentFrame.ChildAdded:Connect(function(ch) if ch:IsA("GuiObject") and ch.LayoutOrder==0 then order=order+1 ch.LayoutOrder=order end end)
 local function measured() return math.max(0,layout.AbsoluteContentSize.Y+6) end
-local function apply(animate) local h=expanded and measured() or 0 if animate then local info=expanded and cti(0.30,"Back","Out") or cti(0.25,"Quint","In") mto(contentFrame,"accH",info,{Size=UDim2.new(1,0,0,h)}) mto(container,"accH",info,{Size=UDim2.new(1,0,0,36+h)}) else mkill(contentFrame,"accH") mkill(container,"accH") contentFrame.Size=UDim2.new(1,0,0,h) container.Size=UDim2.new(1,0,0,36+h) end end
+local function apply(animate)
+local h=expanded and measured() or 0
+if h>0 then contentFrame.Visible=true end
+if animate then
+local info=expanded and cti(0.30,"Back","Out") or cti(0.25,"Quint","In")
+mto(contentFrame,"accH",info,{Size=UDim2.new(1,0,0,h)})
+mto(container,"accH",info,{Size=UDim2.new(1,0,0,36+h)})
+else
+mkill(contentFrame,"accH") mkill(container,"accH")
+contentFrame.Size=UDim2.new(1,0,0,h) container.Size=UDim2.new(1,0,0,36+h)
+end
+if not expanded then
+if animate then
+task.delay(0.3,function() if not expanded then contentFrame.Visible=false end end)
+else
+contentFrame.Visible=false
+end
+end
+end
 layout:GetPropertyChangedSignal("AbsoluteContentSize"):Connect(function() if expanded then apply(true) end end)
 local acc={frame=container,content=contentFrame,header=headerF,toggle=sw}
 function acc.isExpanded() return expanded end
