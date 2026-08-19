@@ -1,6 +1,6 @@
 --[[
-    gw.cc | All-in-One + ESP v3
-    Fixes: lobby detection (Killer tag check), window→VaultPoint tag
+    gw.cc | All-in-One + ESP v4
+    Fixes: per-frame inGame check, window ESP with Adornee
 --]]
 
 local Players=game:GetService("Players")
@@ -440,13 +440,13 @@ end)
 if not ok2 then saveErr("WIRE: "..tostring(err2)) end
 
 --============================================================
--- ESP SYSTEM v3
+-- ESP SYSTEM v4
 --============================================================
 local espObjects={}
 local espConn
 local espTimer=0
 
--- FIX 1: check for Killer tagged player (no killer = lobby)
+-- FIX 1: check for killer tagged player (no killer = not in game)
 local function espInGame()
     if LocalPlayer:GetAttribute("killerend") then return false end
     local char=LocalPlayer.Character
@@ -487,7 +487,8 @@ local function espName(obj,type)
     return type:sub(1,1):upper()..type:sub(2)
 end
 
-local function espUpdate(obj,type,cfg)
+-- FIX 2: espUpdate now accepts optional adornee parameter
+local function espUpdate(obj,type,cfg,adornee)
     if not obj or not obj.Parent then return end
     for _,tag in ipairs(CollectionService:GetTags(obj)) do
         if tag=="NoHighlight" then return end
@@ -497,6 +498,7 @@ local function espUpdate(obj,type,cfg)
     if not entry.highlight then
         entry.highlight=Instance.new("Highlight")
         entry.highlight.Name="gwcc_ESP"
+        if adornee then entry.highlight.Adornee=adornee end
         entry.highlight.Parent=obj
     end
     if not entry.billboard then
@@ -553,13 +555,7 @@ local function espRemove(obj)
 end
 
 local function espScan()
-    if not espInGame() then
-        for _,e in pairs(espObjects) do
-            if e.highlight then e.highlight.Enabled=false end
-            if e.billboard then e.billboard.Enabled=false end
-        end
-        return
-    end
+    if not espInGame() then return end
     local seen={}
     for _,obj in ipairs(CollectionService:GetTagged("Killer")) do
         if obj~=LocalPlayer.Character then seen[obj]=true espUpdate(obj,"killer",Settings.esp.killer) end
@@ -574,10 +570,21 @@ local function espScan()
         end
     end
     for _,obj in ipairs(CollectionService:GetTagged("pallet")) do seen[obj]=true espUpdate(obj,"pallet",Settings.esp.pallet) end
-    -- FIX 2: use VaultPoint tag instead of window
+    -- FIX 2: highlight parent Window model with Adornee on tagged part (both tags)
+    local windowSeen={}
+    for _,part in ipairs(CollectionService:GetTagged("window")) do
+        local model=part.Parent
+        if model and not windowSeen[model] then
+            windowSeen[model]=true seen[model]=true
+            espUpdate(model,"window",Settings.esp.window,part)
+        end
+    end
     for _,part in ipairs(CollectionService:GetTagged("VaultPoint")) do
-        seen[part]=true
-        espUpdate(part,"window",Settings.esp.window)
+        local model=part.Parent
+        if model and not windowSeen[model] then
+            windowSeen[model]=true seen[model]=true
+            espUpdate(model,"window",Settings.esp.window,part)
+        end
     end
     for _,obj in ipairs(CollectionService:GetTagged("Generator")) do
         if obj:GetAttribute("Completed") then espRemove(obj) else seen[obj]=true espUpdate(obj,"generator",Settings.esp.generator) end
@@ -591,7 +598,16 @@ local function espScan()
     end
 end
 
+-- FIX 1: check espInGame() EVERY FRAME (not just every 30 frames)
 espConn=RunService.RenderStepped:Connect(function()
+    local inGame=espInGame()
+    if not inGame then
+        for _,e in pairs(espObjects) do
+            if e.highlight then e.highlight.Enabled=false end
+            if e.billboard then e.billboard.Enabled=false end
+        end
+        return
+    end
     espTimer=espTimer+1
     if espTimer>=30 then espTimer=0 espScan() end
     for obj,e in pairs(espObjects) do
