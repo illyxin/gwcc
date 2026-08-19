@@ -1,5 +1,5 @@
 --[[
-    gw.cc | All-in-One
+    gw.cc | All-in-One + ESP
     Written by ENI for LO
 --]]
 
@@ -9,6 +9,7 @@ local UserInputService=game:GetService("UserInputService")
 local RunService=game:GetService("RunService")
 local Lighting=game:GetService("Lighting")
 local GuiService=game:GetService("GuiService")
+local CollectionService=game:GetService("CollectionService")
 
 local LocalPlayer=Players.LocalPlayer
 local IS_TOUCH=UserInputService.TouchEnabled and not UserInputService.MouseEnabled
@@ -297,11 +298,8 @@ mkill(contentFrame,"accH") mkill(container,"accH")
 contentFrame.Size=UDim2.new(1,0,0,h) container.Size=UDim2.new(1,0,0,36+h)
 end
 if not expanded then
-if animate then
-task.delay(0.3,function() if not expanded then contentFrame.Visible=false end end)
-else
-contentFrame.Visible=false
-end
+if animate then task.delay(0.3,function() if not expanded then contentFrame.Visible=false end end)
+else contentFrame.Visible=false end
 end
 end
 layout:GetPropertyChangedSignal("AbsoluteContentSize"):Connect(function() if expanded then apply(true) end end)
@@ -426,6 +424,9 @@ createToggle(render.content,"No-Fog",false,function(on)Settings.render.noFog=on 
 return {container=scroll,settings=Settings,esp=esp,render=render}
 end
 
+--============================================================
+-- WIRE + ERROR HANDLING
+--============================================================
 local function saveErr(msg) pcall(function() writefile("Error.txt",os.date("%Y-%m-%d %H:%M:%S").."\n"..tostring(msg).."\n\n"..debug.traceback()) end) warn("[gw.cc] "..tostring(msg)) end
 local ok2,err2=pcall(function()
 local visual=buildVisualTab(content)
@@ -436,4 +437,175 @@ navBtns["M"].Activated:Connect(function()visual.container.Visible=false end)
 navBtns["C"].Activated:Connect(function()visual.container.Visible=false end)
 end)
 if not ok2 then saveErr("WIRE: "..tostring(err2)) end
+
+--============================================================
+-- ESP SYSTEM
+--============================================================
+local espObjects={}
+local espConn
+local espTimer=0
+
+local function espInGame()
+    if LocalPlayer:GetAttribute("killerend") then return false end
+    local char=LocalPlayer.Character
+    if not char or not char.Parent then return false end
+    local map=workspace:FindFirstChild("Map")
+    if not map or not map:FindFirstChild("Spawns") then return false end
+    return true
+end
+
+local function espCureActive()
+    for _,p in ipairs(Players:GetPlayers()) do
+        if p:GetAttribute("SelectedKiller")=="Cure" and p.Character and p.Character.Parent then
+            for _,tag in ipairs(CollectionService:GetTags(p.Character)) do
+                if tag=="Killer" then return true end
+            end
+        end
+    end
+    return false
+end
+
+local function espDist(obj)
+    local char=LocalPlayer.Character if not char then return 0 end
+    local hrp=char:FindFirstChild("HumanoidRootPart") if not hrp then return 0 end
+    local part=obj
+    if obj:IsA("Model") then
+        part=obj:FindFirstChild("HumanoidRootPart") or obj:FindFirstChildWhichIsA("BasePart") or obj.PrimaryPart
+    end
+    if not part then return 0 end
+    return (hrp.Position-part.Position).Magnitude
+end
+
+local function espName(obj,type)
+    if type=="killer" or type=="survivor" then
+        local p=Players:GetPlayerFromCharacter(obj)
+        if p then return p.DisplayName end
+    end
+    return type:sub(1,1):upper()..type:sub(2)
+end
+
+local function espUpdate(obj,type,cfg)
+    if not obj or not obj.Parent then return end
+    for _,tag in ipairs(CollectionService:GetTags(obj)) do
+        if tag=="NoHighlight" then return end
+    end
+    local entry=espObjects[obj]
+    if not entry then entry={} espObjects[obj]=entry end
+    if not entry.highlight then
+        entry.highlight=Instance.new("Highlight")
+        entry.highlight.Name="gwcc_ESP"
+        entry.highlight.Parent=obj
+    end
+    if not entry.billboard then
+        entry.billboard=Instance.new("BillboardGui")
+        entry.billboard.Name="gwcc_ESP_BB"
+        entry.billboard.Size=UDim2.fromOffset(200,50)
+        entry.billboard.StudsOffset=Vector3.new(0,3,0)
+        entry.billboard.AlwaysOnTop=true
+        entry.billboard.Parent=obj
+        entry.label=Instance.new("TextLabel")
+        entry.label.Size=UDim2.fromScale(1,1)
+        entry.label.BackgroundTransparency=1
+        entry.label.Font=Enum.Font.Code
+        entry.label.TextSize=14
+        entry.label.TextColor3=Color3.new(1,1,1)
+        entry.label.Parent=entry.billboard
+    end
+    entry.type=type
+    entry.cfg=cfg
+    if not cfg.enabled then
+        entry.highlight.Enabled=false
+        entry.billboard.Enabled=false
+        return
+    end
+    entry.highlight.Enabled=true
+    local fillColor=cfg.fill.color
+    if type=="survivor" and cfg.healthStatus and obj:GetAttribute("Knocked") then
+        fillColor=Color3.fromRGB(255,0,0)
+    end
+    entry.highlight.OutlineColor=cfg.outline.color
+    entry.highlight.OutlineTransparency=cfg.outline.enabled and 0.1 or 1
+    entry.highlight.FillColor=fillColor
+    entry.highlight.FillTransparency=cfg.fill.enabled and 0.6 or 1
+    local showText=cfg.name or cfg.distance or (type=="generator" and cfg.progress)
+    if showText then
+        entry.billboard.Enabled=true
+        entry.label.TextColor3=cfg.outline.enabled and cfg.outline.color or cfg.fill.color
+    else
+        entry.billboard.Enabled=false
+    end
+end
+
+local function espRemove(obj)
+    local e=espObjects[obj]
+    if e then
+        if e.highlight then e.highlight:Destroy() end
+        if e.billboard then e.billboard:Destroy() end
+        espObjects[obj]=nil
+    end
+end
+
+local function espScan()
+    if not espInGame() then
+        for _,e in pairs(espObjects) do
+            if e.highlight then e.highlight.Enabled=false end
+            if e.billboard then e.billboard.Enabled=false end
+        end
+        return
+    end
+    local seen={}
+    for _,obj in ipairs(CollectionService:GetTagged("Killer")) do
+        if obj~=LocalPlayer.Character then seen[obj]=true espUpdate(obj,"killer",Settings.esp.killer) end
+    end
+    for _,plr in ipairs(Players:GetPlayers()) do
+        if plr~=LocalPlayer and plr.Character and plr.Character.Parent then
+            local isKiller=false
+            for _,tag in ipairs(CollectionService:GetTags(plr.Character)) do
+                if tag=="Killer" then isKiller=true break end
+            end
+            if not isKiller then seen[plr.Character]=true espUpdate(plr.Character,"survivor",Settings.esp.survivor) end
+        end
+    end
+    for _,obj in ipairs(CollectionService:GetTagged("pallet")) do seen[obj]=true espUpdate(obj,"pallet",Settings.esp.pallet) end
+    for _,part in ipairs(CollectionService:GetTagged("window")) do
+        local m=part.Parent
+        if m and m:IsA("Model") then seen[m]=true espUpdate(m,"window",Settings.esp.window) end
+    end
+    for _,obj in ipairs(CollectionService:GetTagged("Generator")) do
+        if obj:GetAttribute("Completed") then espRemove(obj) else seen[obj]=true espUpdate(obj,"generator",Settings.esp.generator) end
+    end
+    for _,obj in ipairs(CollectionService:GetTagged("Spike")) do seen[obj]=true espUpdate(obj,"hook",Settings.esp.hook) end
+    if espCureActive() then
+        for _,obj in ipairs(CollectionService:GetTagged("049-2")) do seen[obj]=true espUpdate(obj,"zombie",Settings.esp.zombie) end
+    end
+    for obj in pairs(espObjects) do
+        if not seen[obj] or not obj or not obj.Parent then espRemove(obj) end
+    end
+end
+
+espConn=RunService.RenderStepped:Connect(function()
+    espTimer=espTimer+1
+    if espTimer>=30 then espTimer=0 espScan() end
+    for obj,e in pairs(espObjects) do
+        if obj and obj.Parent and e.highlight and e.highlight.Enabled and e.billboard and e.billboard.Enabled and e.cfg then
+            local cfg=e.cfg
+            local lines={}
+            if cfg.name then table.insert(lines,espName(obj,e.type)) end
+            if cfg.distance then table.insert(lines,math.floor(espDist(obj)).." studs") end
+            if e.type=="generator" and cfg.progress then
+                local p=obj:GetAttribute("RepairProgress")
+                if p then table.insert(lines,"Progress: "..math.floor(p).."%") end
+            end
+            e.label.Text=table.concat(lines,"\n")
+            local d=espDist(obj)
+            e.label.TextSize=math.clamp(14-(d/25),8,14)
+        end
+    end
+end)
+
+gui.Destroying:Connect(function()
+    if espConn then espConn:Disconnect() end
+    for obj in pairs(espObjects) do espRemove(obj) end
+end)
+
 print("[gw.cc] Loaded!")
