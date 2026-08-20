@@ -31,7 +31,7 @@ function Motion.to(obj,group,info,props) if not obj then return end local r=Moti
 function Motion.kill(obj,group) local r=Motion._reg[obj] if r and r[group] then r[group]:Cancel() r[group]=nil end end
 local springPool,springConn={},nil
 function Motion.spring(scaleObj,target,opts) if not scaleObj then return end opts=opts or {} if MOTION.reduce then Motion.to(scaleObj,"scale",E.snap(),{Scale=target}) return end local st=springPool[scaleObj] if st then st.target=target if opts.stiffness then st.stiffness=opts.stiffness end if opts.damping then st.damping=opts.damping end if opts.impulse then st.vel=st.vel+opts.impulse end else springPool[scaleObj]={target=target,vel=opts.impulse or 0,stiffness=opts.stiffness or 260,damping=opts.damping or 22} end if not springConn then springConn=RunService.RenderStepped:Connect(function(dt) dt=math.min(dt,1/30) local alive=0 for obj,st in pairs(springPool) do if not obj.Parent then springPool[obj]=nil else local x=obj.Scale local a=(st.target-x)*st.stiffness-st.vel*st.damping st.vel=st.vel+a*dt obj.Scale=x+st.vel*dt if math.abs(st.target-obj.Scale)<0.0015 and math.abs(st.vel)<0.02 then obj.Scale=st.target springPool[obj]=nil else alive=alive+1 end end end if alive==0 then springConn:Disconnect() springConn=nil end end) end end
-function Motion.press(scaleObj,depth) if not scaleObj then return end scaleObj.Scale=1-(depth or 0.16) Motion.spring(scaleObj,1,{stiffness=320,damping:18}) end
+function Motion.press(scaleObj,depth) if not scaleObj then return end scaleObj.Scale=1-(depth or 0.16) Motion.spring(scaleObj,1,{stiffness=320,damping=18}) end
 function Motion.stagger(list,step,startAt,fn) if MOTION.reduce then for i,v in ipairs(list) do fn(v,i) end return end for i,v in ipairs(list) do task.delay((startAt or 0)+(i-1)*step,function()fn(v,i)end) end end
 
 local function new(class,props,parent) local i=Instance.new(class) for k,v in pairs(props) do i[k]=v end if parent then i.Parent=parent end return i end
@@ -56,7 +56,7 @@ local WW=small and math.clamp(math.floor(screenW*0.82),260,340) or 340
 local gui=new("ScreenGui",{Name="gwcc_UI",ResetOnSpawn=false,IgnoreGuiInset=true,DisplayOrder=9999,ZIndexBehavior=Enum.ZIndexBehavior.Sibling},uiParent)
 task.spawn(function() while task.wait(1) do if not gui.Parent then gui.Parent=uiParent end if not gui.Enabled then gui.Enabled=true end end end)
 local dim=new("Frame",{Name="Dim",BackgroundColor3=Color3.new(0,0,0),BackgroundTransparency=1,BorderSizePixel=0,Active=false,Size=UDim2.fromScale(1,1),ZIndex=5},gui)
-local blur; if MOTION.blur then pcall(function() blur=new("BlurEffect",{Name="gwcc_Blur",Size=0,Enabled=true},Lighting) end) end
+local blur; if MOTION.blur then pcall(function() blur=new("BlurEffect",{Name="gwcc_Blur",Size=0,Enabled:true},Lighting) end) end
 local function setBackdrop(on) if MOTION.dim then Motion.to(dim,"bg",E.smooth(),{BackgroundTransparency=on and 0.45 or 1}) end if blur then Motion.to(blur,"blur",E.smooth(),{Size=on and 14 or 0}) end end
 
 local welcomeTargetPos=UDim2.fromScale(0.5,0.5)
@@ -280,7 +280,7 @@ local arrow=new("TextButton",{Name="Arrow",Text="▼",AutoButtonColor=false,Back
 local asc=scaleOf(arrow,1)
 local title=new("TextLabel",{Name="Title",BackgroundTransparency=1,Text=tostring(name),TextColor3=C.TxtPri,TextXAlignment=Enum.TextXAlignment.Left,Font=FONT,TextSize=textSize or 13,Position=UDim2.new(0,30,0,0),Size=UDim2.new(1,-80,1,0),ZIndex=3},headerF)
 local sw
-if withToggle then sw=makeSwitch(headerF,{default=false,onToggle=onToggle,rightPad:54,zIndex=4}) end
+if withToggle then sw=makeSwitch(headerF,{default=false,onToggle=onToggle,rightPad=54,zIndex=4}) end
 local contentFrame=new("Frame",{Name="Content",BackgroundTransparency=1,Position=UDim2.new(0,0,0,36),Size=UDim2.new(1,0,0,0),ClipsDescendants=true,ZIndex=2,Visible=false},container)
 local layout=new("UIListLayout",{SortOrder=Enum.SortOrder.LayoutOrder,Padding=UDim.new(0,2),FillDirection=Enum.FillDirection.Vertical},contentFrame)
 local order=0
@@ -309,7 +309,7 @@ function acc.setExpanded(on,animate) on=on and true or false expanded=on animate
 function acc.addRow(inst) order=order+1 inst.LayoutOrder=order inst.Parent=contentFrame return inst end
 function acc.refresh() apply(true) end
 arrow.MouseButton1Click:Connect(function() mpress(asc,0.08) acc.setExpanded(not expanded,true) end)
-if not TOUCH then arrow.MouseEnter:Connect(function() mto(title,"hdrTxt",cmicro(),{TextColor3:C.AccentH}) mto(arrow,"hdrArw",cmicro(),{TextColor3=C.TxtPri}) end) arrow.MouseLeave:Connect(function() mto(title,"hdrTxt",cmicro(),{TextColor3=C.TxtPri}) mto(arrow,"hdrArw",cmicro(),{TextColor3=C.TxtMut}) end) end
+if not TOUCH then arrow.MouseEnter:Connect(function() mto(title,"hdrTxt",cmicro(),{TextColor3=C.AccentH}) mto(arrow,"hdrArw",cmicro(),{TextColor3=C.TxtPri}) end) arrow.MouseLeave:Connect(function() mto(title,"hdrTxt",cmicro(),{TextColor3=C.TxtPri}) mto(arrow,"hdrArw",cmicro(),{TextColor3=C.TxtMut}) end) end
 apply(false) return acc
 end
 
