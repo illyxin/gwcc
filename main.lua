@@ -31,7 +31,7 @@ function Motion.to(obj,group,info,props) if not obj then return end local r=Moti
 function Motion.kill(obj,group) local r=Motion._reg[obj] if r and r[group] then r[group]:Cancel() r[group]=nil end end
 local springPool,springConn={},nil
 function Motion.spring(scaleObj,target,opts) if not scaleObj then return end opts=opts or {} if MOTION.reduce then Motion.to(scaleObj,"scale",E.snap(),{Scale=target}) return end local st=springPool[scaleObj] if st then st.target=target if opts.stiffness then st.stiffness=opts.stiffness end if opts.damping then st.damping=opts.damping end if opts.impulse then st.vel=st.vel+opts.impulse end else springPool[scaleObj]={target=target,vel=opts.impulse or 0,stiffness=opts.stiffness or 260,damping=opts.damping or 22} end if not springConn then springConn=RunService.RenderStepped:Connect(function(dt) dt=math.min(dt,1/30) local alive=0 for obj,st in pairs(springPool) do if not obj.Parent then springPool[obj]=nil else local x=obj.Scale local a=(st.target-x)*st.stiffness-st.vel*st.damping st.vel=st.vel+a*dt obj.Scale=x+st.vel*dt if math.abs(st.target-obj.Scale)<0.0015 and math.abs(st.vel)<0.02 then obj.Scale=st.target springPool[obj]=nil else alive=alive+1 end end end if alive==0 then springConn:Disconnect() springConn=nil end end) end end
-function Motion.press(scaleObj,depth) if not scaleObj then return end scaleObj.Scale=1-(depth or 0.16) Motion.spring(scaleObj,1,{stiffness=320,damping=18}) end
+function Motion.press(scaleObj,depth) if not scaleObj then return end scaleObj.Scale=1-(depth or 0.16) Motion.spring(scaleObj,1,{stiffness=320,damping:18}) end
 function Motion.stagger(list,step,startAt,fn) if MOTION.reduce then for i,v in ipairs(list) do fn(v,i) end return end for i,v in ipairs(list) do task.delay((startAt or 0)+(i-1)*step,function()fn(v,i)end) end end
 
 local function new(class,props,parent) local i=Instance.new(class) for k,v in pairs(props) do i[k]=v end if parent then i.Parent=parent end return i end
@@ -158,7 +158,7 @@ for _,id in ipairs(TABS) do
 local btn,scl=navBtns[id],navScales[id]
 if not IS_TOUCH then
 btn.MouseEnter:Connect(function() if activeTab~=id then Motion.to(btn,"color",E.micro(),{BackgroundColor3=C.NavHov}) Motion.spring(scl,1.05,{stiffness=300,damping=24}) end end)
-btn.MouseLeave:Connect(function() if activeTab~=id then Motion.to(btn,"color",E.micro(),{BackgroundColor3=C.NavIna}) Motion.spring(scl,1,{stiffness=300,damping:24}) end end)
+btn.MouseLeave:Connect(function() if activeTab~=id then Motion.to(btn,"color",E.micro(),{BackgroundColor3=C.NavIna}) Motion.spring(scl,1,{stiffness=300,damping=24}) end end)
 end
 btn.MouseButton1Click:Connect(function()
 Motion.press(scl,0.18)
@@ -172,10 +172,10 @@ end
 local dragging,dragStart,startPos=false,nil,nil
 local minDragging,minDragStart,minStartPos,minMoved=false,nil,nil,false
 local minVel,lastMinPos,lastMinT=Vector2.zero,Vector2.zero,0
-local function startDrag(input) if input.UserInputType==Enum.UserInputType.MouseButton1 or input.UserInputType==Enum.UserInputType.Touch then dragging=true dragStart=input.Position startPos=panel.Position Motion.spring(panelScale,1.015,{stiffness=260,damping:26}) Motion.to(pShadow,"drag",E.smooth(),{ImageTransparency=0.35}) end end
+local function startDrag(input) if input.UserInputType==Enum.UserInputType.MouseButton1 or input.UserInputType==Enum.UserInputType.Touch then dragging=true dragStart=input.Position startPos=panel.Position Motion.spring(panelScale,1.015,{stiffness=260,damping=26}) Motion.to(pShadow,"drag",E.smooth(),{ImageTransparency=0.35}) end end
 panel.InputBegan:Connect(startDrag) header.InputBegan:Connect(startDrag) body.InputBegan:Connect(startDrag) nav.InputBegan:Connect(startDrag) content.InputBegan:Connect(startDrag)
 minBtn.InputBegan:Connect(function(input) if input.UserInputType==Enum.UserInputType.MouseButton1 or input.UserInputType==Enum.UserInputType.Touch then minDragging=true minMoved=false minDragStart=input.Position minStartPos=fabPos minVel=Vector2.zero lastMinPos=Vector2.new(input.Position.X,input.Position.Y) lastMinT=os.clock() stopIdle() Motion.press(minScale,0.16) Motion.to(minBtn,"color",E.micro(),{BackgroundColor3=C.MinP}) end end)
-UserInputService.InputEnded:Connect(function(input) if input.UserInputType~=Enum.UserInputType.MouseButton1 and input.UserInputType~=Enum.UserInputType.Touch then return end if dragging then dragging=false Motion.spring(panelScale,1,{stiffness=240,damping:20}) Motion.to(pShadow,"drag",E.smooth(),{ImageTransparency=menuVisible and 0.5 or 0.9}) end if minDragging then minDragging=false Motion.to(minBtn,"color",E.micro(),{BackgroundColor3=C.MinA}) if not minMoved then toggleMenu() Motion.spring(minScale,1,{impulse=1.1}) else local vp=vpSize() local pad=FAB/2+14 local projected=fabPos+minVel*0.12 local targetX=projected.X if MOTION.edgeSnap then targetX=(projected.X<vp.X*0.5) and pad or (vp.X-pad) end local targetY=math.clamp(projected.Y,pad,vp.Y-pad) fabPos=Vector2.new(targetX,targetY) Motion.to(minBtn,"pos",ti(0.45,ES.Back,ED.Out),{Position=UDim2.fromOffset(fabPos.X,fabPos.Y)}) end startIdle() end end)
+UserInputService.InputEnded:Connect(function(input) if input.UserInputType~=Enum.UserInputType.MouseButton1 and input.UserInputType~=Enum.UserInputType.Touch then return end if dragging then dragging=false Motion.spring(panelScale,1,{stiffness=240,damping=20}) Motion.to(pShadow,"drag",E.smooth(),{ImageTransparency=menuVisible and 0.5 or 0.9}) end if minDragging then minDragging=false Motion.to(minBtn,"color",E.micro(),{BackgroundColor3=C.MinA}) if not minMoved then toggleMenu() Motion.spring(minScale,1,{impulse=1.1}) else local vp=vpSize() local pad=FAB/2+14 local projected=fabPos+minVel*0.12 local targetX=projected.X if MOTION.edgeSnap then targetX=(projected.X<vp.X*0.5) and pad or (vp.X-pad) end local targetY=math.clamp(projected.Y,pad,vp.Y-pad) fabPos=Vector2.new(targetX,targetY) Motion.to(minBtn,"pos",ti(0.45,ES.Back,ED.Out),{Position=UDim2.fromOffset(fabPos.X,fabPos.Y)}) end startIdle() end end)
 UserInputService.InputChanged:Connect(function(input) if input.UserInputType~=Enum.UserInputType.MouseMovement and input.UserInputType~=Enum.UserInputType.Touch then return end if dragging and dragStart then local d=input.Position-dragStart panel.Position=UDim2.new(startPos.X.Scale,startPos.X.Offset+d.X,startPos.Y.Scale,startPos.Y.Offset+d.Y) panelTargetPos=panel.Position end if minDragging and minDragStart then local d=input.Position-minDragStart if d.Magnitude>6 then minMoved=true end local now=os.clock() local dt2=math.max(now-lastMinT,1/240) local cur=Vector2.new(input.Position.X,input.Position.Y) minVel=(cur-lastMinPos)/dt2 lastMinPos,lastMinT=cur,now local vp=vpSize() local pad=FAB/2+4 fabPos=Vector2.new(math.clamp(minStartPos.X+d.X,pad,vp.X-pad),math.clamp(minStartPos.Y+d.Y,pad,vp.Y-pad)) Motion.kill(minBtn,"pos") minBtn.Position=UDim2.fromOffset(fabPos.X,fabPos.Y) end end)
 UserInputService.InputBegan:Connect(function(input,processed) if processed then return end if input.KeyCode==Enum.KeyCode.RightShift then toggleMenu() end end)
 
@@ -280,7 +280,7 @@ local arrow=new("TextButton",{Name="Arrow",Text="▼",AutoButtonColor=false,Back
 local asc=scaleOf(arrow,1)
 local title=new("TextLabel",{Name="Title",BackgroundTransparency=1,Text=tostring(name),TextColor3=C.TxtPri,TextXAlignment=Enum.TextXAlignment.Left,Font=FONT,TextSize=textSize or 13,Position=UDim2.new(0,30,0,0),Size=UDim2.new(1,-80,1,0),ZIndex=3},headerF)
 local sw
-if withToggle then sw=makeSwitch(headerF,{default=false,onToggle=onToggle,rightPad=54,zIndex=4}) end
+if withToggle then sw=makeSwitch(headerF,{default=false,onToggle=onToggle,rightPad:54,zIndex=4}) end
 local contentFrame=new("Frame",{Name="Content",BackgroundTransparency=1,Position=UDim2.new(0,0,0,36),Size=UDim2.new(1,0,0,0),ClipsDescendants=true,ZIndex=2,Visible=false},container)
 local layout=new("UIListLayout",{SortOrder=Enum.SortOrder.LayoutOrder,Padding=UDim.new(0,2),FillDirection=Enum.FillDirection.Vertical},contentFrame)
 local order=0
@@ -309,7 +309,7 @@ function acc.setExpanded(on,animate) on=on and true or false expanded=on animate
 function acc.addRow(inst) order=order+1 inst.LayoutOrder=order inst.Parent=contentFrame return inst end
 function acc.refresh() apply(true) end
 arrow.MouseButton1Click:Connect(function() mpress(asc,0.08) acc.setExpanded(not expanded,true) end)
-if not TOUCH then arrow.MouseEnter:Connect(function() mto(title,"hdrTxt",cmicro(),{TextColor3=C.AccentH}) mto(arrow,"hdrArw",cmicro(),{TextColor3=C.TxtPri}) end) arrow.MouseLeave:Connect(function() mto(title,"hdrTxt",cmicro(),{TextColor3=C.TxtPri}) mto(arrow,"hdrArw",cmicro(),{TextColor3=C.TxtMut}) end) end
+if not TOUCH then arrow.MouseEnter:Connect(function() mto(title,"hdrTxt",cmicro(),{TextColor3:C.AccentH}) mto(arrow,"hdrArw",cmicro(),{TextColor3=C.TxtPri}) end) arrow.MouseLeave:Connect(function() mto(title,"hdrTxt",cmicro(),{TextColor3=C.TxtPri}) mto(arrow,"hdrArw",cmicro(),{TextColor3=C.TxtMut}) end) end
 apply(false) return acc
 end
 
@@ -345,7 +345,7 @@ table.insert(conns,hueHit.InputBegan:Connect(function(i) if isPointer(i) then dr
 table.insert(conns,UIS.InputChanged:Connect(function(i) if not dragging2 or not isMove(i) then return end if dragging2=="sv" then fromSV(i.Position) else fromHue(i.Position) end end))
 table.insert(conns,UIS.InputEnded:Connect(function(i) if isPointer(i) then dragging2=nil end end))
 local api={}
-function api.close() if closing then return end closing=true if activePicker==api then activePicker=nil end for _,c in ipairs(conns) do pcall(function()c:Disconnect()end) end table.clear(conns) mto(backdrop,"fade",cti(0.18,"Quint","In"),{BackgroundTransparency=1}) mto(psc,"pop",cti(0.18,"Quint,"In"),{Scale=0.9}) task.delay(0.2,function()if backdrop and backdrop.Parent then backdrop:Destroy() end end) if cfg.onClose then cfg.onClose() end end
+function api.close() if closing then return end closing=true if activePicker==api then activePicker=nil end for _,c in ipairs(conns) do pcall(function()c:Disconnect()end) end table.clear(conns) mto(backdrop,"fade",cti(0.18,"Quint","In"),{BackgroundTransparency=1}) mto(psc,"pop",cti(0.18,"Quint","In"),{Scale=0.9}) task.delay(0.2,function()if backdrop and backdrop.Parent then backdrop:Destroy() end end) if cfg.onClose then cfg.onClose() end end
 dismiss.MouseButton1Click:Connect(api.close)
 push(false) mto(backdrop,"fade",cti(0.20,"Quad","Out"),{BackgroundTransparency=0.5}) mspring(psc,1) activePicker=api return api
 end
