@@ -1,6 +1,6 @@
 --[[
     gw.cc | All-in-One + ESP v5
-    Stage 1 Fix: Window/Vault ESP using BoxHandleAdornment attached to "Bottom" part.
+    Stage 1 Fix: Window/Vault ESP using Highlight attached to "Bottom" part.
 --]]
 
 local Players=game:GetService("Players")
@@ -498,29 +498,20 @@ local function espUpdate(obj,type,cfg)
     local entry=espObjects[obj]
     if not entry then entry={} espObjects[obj]=entry end
 
-    if type == "window" then
-        if not entry.box then
+    if not entry.highlight then
+        local adornee = obj
+        if type == "window" then
             local targetPart = obj:FindFirstChild("Bottom", true)
             if not targetPart or not targetPart:IsA("BasePart") then
                 targetPart = obj.PrimaryPart or obj:FindFirstChildWhichIsA("BasePart")
             end
-            if targetPart then
-                entry.box = Instance.new("BoxHandleAdornment")
-                entry.box.Name = "gwcc_ESP_Box"
-                entry.box.AlwaysOnTop = true
-                entry.box.ZIndex = 5
-                entry.box.Adornee = targetPart
-                entry.box.Size = targetPart.Size + Vector3.new(0.2, 0.2, 0.2)
-                entry.box.Parent = workspace
-            end
+            if targetPart then adornee = targetPart end
         end
-    else
-        if not entry.highlight then
-            entry.highlight = Instance.new("Highlight")
-            entry.highlight.Name = "gwcc_ESP"
-            entry.highlight.Adornee = obj
-            entry.highlight.Parent = workspace
-        end
+        
+        entry.highlight = Instance.new("Highlight")
+        entry.highlight.Name = "gwcc_ESP"
+        entry.highlight.Adornee = adornee
+        entry.highlight.Parent = workspace
     end
 
     if not entry.billboard then
@@ -545,11 +536,13 @@ local function espUpdate(obj,type,cfg)
 
     if not cfg.enabled then
         if entry.highlight then entry.highlight.Enabled = false end
-        if entry.box then entry.box.Visible = false end
         entry.billboard.Enabled = false
         return
     end
 
+    if not entry.highlight then return end
+
+    entry.highlight.Enabled = true
     local fillColor = cfg.fill.color
     if type == "survivor" and cfg.healthStatus then
         if obj:GetAttribute("Knocked") then
@@ -559,17 +552,10 @@ local function espUpdate(obj,type,cfg)
         end
     end
 
-    if entry.highlight then
-        entry.highlight.Enabled = true
-        entry.highlight.OutlineColor = cfg.outline.color
-        entry.highlight.OutlineTransparency = cfg.outline.enabled and 0.1 or 1
-        entry.highlight.FillColor = fillColor
-        entry.highlight.FillTransparency = cfg.fill.enabled and 0.6 or 1
-    elseif entry.box then
-        entry.box.Visible = true
-        entry.box.Color3 = cfg.outline.color
-        entry.box.Transparency = cfg.outline.enabled and 0.1 or 1
-    end
+    entry.highlight.OutlineColor = cfg.outline.color
+    entry.highlight.OutlineTransparency = cfg.outline.enabled and 0.1 or 1
+    entry.highlight.FillColor = fillColor
+    entry.highlight.FillTransparency = cfg.fill.enabled and 0.6 or 1
 
     local showText = cfg.name or cfg.distance or (type=="generator" and cfg.progress)
     if showText then
@@ -584,7 +570,6 @@ local function espRemove(obj)
     local e = espObjects[obj]
     if e then
         if e.highlight then e.highlight:Destroy() end
-        if e.box then e.box:Destroy() end
         if e.billboard then e.billboard:Destroy() end
         espObjects[obj] = nil
     end
@@ -665,7 +650,6 @@ espConn=RunService.RenderStepped:Connect(function()
     if not inGame then
         for _,e in pairs(espObjects) do
             if e.highlight then e.highlight.Enabled=false end
-            if e.box then e.box.Visible=false end
             if e.billboard then e.billboard.Enabled=false end
         end
         return
