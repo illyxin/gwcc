@@ -1,7 +1,6 @@
 --[[
     gw.cc | All-in-One + ESP v5
-    Fixes: Killer player check for lobby, window Model highlight without Adornee
-    Stage 1 Fix: Replaced tag-based window detection with structural map scanning.
+    Stage 1 Fix: Window/Vault ESP using BoxHandleAdornment + structural scanning
 --]]
 
 local Players=game:GetService("Players")
@@ -159,7 +158,7 @@ for _,id in ipairs(TABS) do
 local btn,scl=navBtns[id],navScales[id]
 if not IS_TOUCH then
 btn.MouseEnter:Connect(function() if activeTab~=id then Motion.to(btn,"color",E.micro(),{BackgroundColor3=C.NavHov}) Motion.spring(scl,1.05,{stiffness=300,damping=24}) end end)
-btn.MouseLeave:Connect(function() if activeTab~=id then Motion.to(btn,"color",E.micro(),{BackgroundColor3=C.NavIna}) Motion.spring(scl,1,{stiffness=300,damping=24}) end end)
+btn.MouseLeave:Connect(function() if activeTab~=id then Motion.to(btn,"color",E.micro(),{BackgroundColor3=C.NavIna}) Motion.spring(scl,1,{stiffness=300,damping:24}) end end)
 end
 btn.MouseButton1Click:Connect(function()
 Motion.press(scl,0.18)
@@ -173,10 +172,10 @@ end
 local dragging,dragStart,startPos=false,nil,nil
 local minDragging,minDragStart,minStartPos,minMoved=false,nil,nil,false
 local minVel,lastMinPos,lastMinT=Vector2.zero,Vector2.zero,0
-local function startDrag(input) if input.UserInputType==Enum.UserInputType.MouseButton1 or input.UserInputType==Enum.UserInputType.Touch then dragging=true dragStart=input.Position startPos=panel.Position Motion.spring(panelScale,1.015,{stiffness=260,damping=26}) Motion.to(pShadow,"drag",E.smooth(),{ImageTransparency=0.35}) end end
+local function startDrag(input) if input.UserInputType==Enum.UserInputType.MouseButton1 or input.UserInputType==Enum.UserInputType.Touch then dragging=true dragStart=input.Position startPos=panel.Position Motion.spring(panelScale,1.015,{stiffness=260,damping:26}) Motion.to(pShadow,"drag",E.smooth(),{ImageTransparency=0.35}) end end
 panel.InputBegan:Connect(startDrag) header.InputBegan:Connect(startDrag) body.InputBegan:Connect(startDrag) nav.InputBegan:Connect(startDrag) content.InputBegan:Connect(startDrag)
 minBtn.InputBegan:Connect(function(input) if input.UserInputType==Enum.UserInputType.MouseButton1 or input.UserInputType==Enum.UserInputType.Touch then minDragging=true minMoved=false minDragStart=input.Position minStartPos=fabPos minVel=Vector2.zero lastMinPos=Vector2.new(input.Position.X,input.Position.Y) lastMinT=os.clock() stopIdle() Motion.press(minScale,0.16) Motion.to(minBtn,"color",E.micro(),{BackgroundColor3=C.MinP}) end end)
-UserInputService.InputEnded:Connect(function(input) if input.UserInputType~=Enum.UserInputType.MouseButton1 and input.UserInputType~=Enum.UserInputType.Touch then return end if dragging then dragging=false Motion.spring(panelScale,1,{stiffness=240,damping=20}) Motion.to(pShadow,"drag",E.smooth(),{ImageTransparency=menuVisible and 0.5 or 0.9}) end if minDragging then minDragging=false Motion.to(minBtn,"color",E.micro(),{BackgroundColor3=C.MinA}) if not minMoved then toggleMenu() Motion.spring(minScale,1,{impulse=1.1}) else local vp=vpSize() local pad=FAB/2+14 local projected=fabPos+minVel*0.12 local targetX=projected.X if MOTION.edgeSnap then targetX=(projected.X<vp.X*0.5) and pad or (vp.X-pad) end local targetY=math.clamp(projected.Y,pad,vp.Y-pad) fabPos=Vector2.new(targetX,targetY) Motion.to(minBtn,"pos",ti(0.45,ES.Back,ED.Out),{Position=UDim2.fromOffset(fabPos.X,fabPos.Y)}) end startIdle() end end)
+UserInputService.InputEnded:Connect(function(input) if input.UserInputType~=Enum.UserInputType.MouseButton1 and input.UserInputType~=Enum.UserInputType.Touch then return end if dragging then dragging=false Motion.spring(panelScale,1,{stiffness=240,damping:20}) Motion.to(pShadow,"drag",E.smooth(),{ImageTransparency=menuVisible and 0.5 or 0.9}) end if minDragging then minDragging=false Motion.to(minBtn,"color",E.micro(),{BackgroundColor3=C.MinA}) if not minMoved then toggleMenu() Motion.spring(minScale,1,{impulse=1.1}) else local vp=vpSize() local pad=FAB/2+14 local projected=fabPos+minVel*0.12 local targetX=projected.X if MOTION.edgeSnap then targetX=(projected.X<vp.X*0.5) and pad or (vp.X-pad) end local targetY=math.clamp(projected.Y,pad,vp.Y-pad) fabPos=Vector2.new(targetX,targetY) Motion.to(minBtn,"pos",ti(0.45,ES.Back,ED.Out),{Position=UDim2.fromOffset(fabPos.X,fabPos.Y)}) end startIdle() end end)
 UserInputService.InputChanged:Connect(function(input) if input.UserInputType~=Enum.UserInputType.MouseMovement and input.UserInputType~=Enum.UserInputType.Touch then return end if dragging and dragStart then local d=input.Position-dragStart panel.Position=UDim2.new(startPos.X.Scale,startPos.X.Offset+d.X,startPos.Y.Scale,startPos.Y.Offset+d.Y) panelTargetPos=panel.Position end if minDragging and minDragStart then local d=input.Position-minDragStart if d.Magnitude>6 then minMoved=true end local now=os.clock() local dt2=math.max(now-lastMinT,1/240) local cur=Vector2.new(input.Position.X,input.Position.Y) minVel=(cur-lastMinPos)/dt2 lastMinPos,lastMinT=cur,now local vp=vpSize() local pad=FAB/2+4 fabPos=Vector2.new(math.clamp(minStartPos.X+d.X,pad,vp.X-pad),math.clamp(minStartPos.Y+d.Y,pad,vp.Y-pad)) Motion.kill(minBtn,"pos") minBtn.Position=UDim2.fromOffset(fabPos.X,fabPos.Y) end end)
 UserInputService.InputBegan:Connect(function(input,processed) if processed then return end if input.KeyCode==Enum.KeyCode.RightShift then toggleMenu() end end)
 
@@ -346,7 +345,7 @@ table.insert(conns,hueHit.InputBegan:Connect(function(i) if isPointer(i) then dr
 table.insert(conns,UIS.InputChanged:Connect(function(i) if not dragging2 or not isMove(i) then return end if dragging2=="sv" then fromSV(i.Position) else fromHue(i.Position) end end))
 table.insert(conns,UIS.InputEnded:Connect(function(i) if isPointer(i) then dragging2=nil end end))
 local api={}
-function api.close() if closing then return end closing=true if activePicker==api then activePicker=nil end for _,c in ipairs(conns) do pcall(function()c:Disconnect()end) end table.clear(conns) mto(backdrop,"fade",cti(0.18,"Quint","In"),{BackgroundTransparency=1}) mto(psc,"pop",cti(0.18,"Quint","In"),{Scale=0.9}) task.delay(0.2,function()if backdrop and backdrop.Parent then backdrop:Destroy() end end) if cfg.onClose then cfg.onClose() end end
+function api.close() if closing then return end closing=true if activePicker==api then activePicker=nil end for _,c in ipairs(conns) do pcall(function()c:Disconnect()end) end table.clear(conns) mto(backdrop,"fade",cti(0.18,"Quint","In"),{BackgroundTransparency=1}) mto(psc,"pop",cti(0.18,"Quint,"In"),{Scale=0.9}) task.delay(0.2,function()if backdrop and backdrop.Parent then backdrop:Destroy() end end) if cfg.onClose then cfg.onClose() end end
 dismiss.MouseButton1Click:Connect(api.close)
 push(false) mto(backdrop,"fade",cti(0.20,"Quad","Out"),{BackgroundTransparency=0.5}) mspring(psc,1) activePicker=api return api
 end
@@ -441,26 +440,24 @@ end)
 if not ok2 then saveErr("WIRE: "..tostring(err2)) end
 
 --============================================================
--- ESP SYSTEM v5
+-- ESP SYSTEM v5 (Stage 1: Window/Vault Fix)
 --============================================================
 local espObjects={}
 local espConn
 local espTimer=0
 
--- FIX 1: check for "Killer" tagged PLAYER CHARACTER (not just any object)
 local function espInGame()
     if LocalPlayer:GetAttribute("killerend") then return false end
     local char=LocalPlayer.Character
     if not char or not char.Parent then return false end
     local cam=workspace.CurrentCamera
     if cam and cam.CameraType~=Enum.CameraType.Custom then return false end
-    -- Look for a Killer tagged object that belongs to a real player (any player, including self)
     for _,obj in ipairs(CollectionService:GetTagged("Killer")) do
         if obj and obj.Parent and Players:GetPlayerFromCharacter(obj) then
-            return true -- Active killer player found → game is running
+            return true
         end
     end
-    return false -- No active killer player → lobby or between rounds
+    return false
 end
 
 local function espCureActive()
@@ -493,7 +490,7 @@ local function espName(obj,type)
     return type:sub(1,1):upper()..type:sub(2)
 end
 
--- FIX 2: removed adornee parameter, highlight parent model directly
+-- ИСПРАВЛЕНО: Window использует BoxHandleAdornment, всё остальное — Highlight
 local function espUpdate(obj,type,cfg)
     if not obj or not obj.Parent then return end
     for _,tag in ipairs(CollectionService:GetTags(obj)) do
@@ -501,20 +498,35 @@ local function espUpdate(obj,type,cfg)
     end
     local entry=espObjects[obj]
     if not entry then entry={} espObjects[obj]=entry end
-    if not entry.highlight then
+
+    -- Highlight (для всего КРОМЕ окон)
+    if not entry.highlight and type ~= "window" then
         entry.highlight=Instance.new("Highlight")
         entry.highlight.Name="gwcc_ESP"
-        entry.highlight.Adornee = obj -- Added Adornee for proper highlighting
-        entry.highlight.Parent = workspace -- Parent to workspace for better management
+        entry.highlight.Adornee = obj
+        entry.highlight.Parent = workspace
     end
+
+    -- BoxHandleAdornment (ТОЛЬКО для окон, как у 6locc)
+    if not entry.box and type == "window" then
+        entry.box=Instance.new("BoxHandleAdornment")
+        entry.box.Name="gwcc_ESP_Box"
+        entry.box.AlwaysOnTop = true
+        entry.box.ZIndex = 5
+        entry.box.Transparency = 0.6
+        entry.box.Adornee = obj
+        entry.box.Parent = workspace
+    end
+
+    -- Billboard (для всех)
     if not entry.billboard then
         entry.billboard=Instance.new("BillboardGui")
         entry.billboard.Name="gwcc_ESP_BB"
         entry.billboard.Size=UDim2.fromOffset(200,50)
         entry.billboard.StudsOffset=Vector3.new(0,3,0)
         entry.billboard.AlwaysOnTop=true
-        entry.billboard.Adornee = obj -- Added Adornee
-        entry.billboard.Parent = workspace -- Parent to workspace
+        entry.billboard.Adornee = obj
+        entry.billboard.Parent = workspace
         entry.label=Instance.new("TextLabel")
         entry.label.Size=UDim2.fromScale(1,1)
         entry.label.BackgroundTransparency=1
@@ -523,14 +535,17 @@ local function espUpdate(obj,type,cfg)
         entry.label.TextColor3=Color3.new(1,1,1)
         entry.label.Parent=entry.billboard
     end
+
     entry.type=type
     entry.cfg=cfg
+
     if not cfg.enabled then
-        entry.highlight.Enabled=false
+        if entry.highlight then entry.highlight.Enabled=false end
+        if entry.box then entry.box.Visible=false end
         entry.billboard.Enabled=false
         return
     end
-    entry.highlight.Enabled=true
+
     local fillColor=cfg.fill.color
     if type=="survivor" and cfg.healthStatus then
         if obj:GetAttribute("Knocked") then
@@ -539,10 +554,23 @@ local function espUpdate(obj,type,cfg)
             fillColor=cfg.healthHealthy.color
         end
     end
-    entry.highlight.OutlineColor=cfg.outline.color
-    entry.highlight.OutlineTransparency=cfg.outline.enabled and 0.1 or 1
-    entry.highlight.FillColor=fillColor
-    entry.highlight.FillTransparency=cfg.fill.enabled and 0.6 or 1
+
+    -- Применяем цвета для Highlight
+    if entry.highlight then
+        entry.highlight.Enabled=true
+        entry.highlight.OutlineColor=cfg.outline.color
+        entry.highlight.OutlineTransparency=cfg.outline.enabled and 0.1 or 1
+        entry.highlight.FillColor=fillColor
+        entry.highlight.FillTransparency=cfg.fill.enabled and 0.6 or 1
+    end
+
+    -- Применяем цвета для Box (окна)
+    if entry.box then
+        entry.box.Visible=true
+        entry.box.Color3=cfg.outline.color
+        entry.box.Transparency=cfg.outline.enabled and 0.1 or 1
+    end
+
     local showText=cfg.name or cfg.distance or (type=="generator" and cfg.progress)
     if showText then
         entry.billboard.Enabled=true
@@ -552,20 +580,27 @@ local function espUpdate(obj,type,cfg)
     end
 end
 
+-- ИСПРАВЛЕНО: добавлено удаление entry.box
 local function espRemove(obj)
     local e=espObjects[obj]
     if e then
         if e.highlight then e.highlight:Destroy() end
+        if e.box then e.box:Destroy() end
         if e.billboard then e.billboard:Destroy() end
         espObjects[obj]=nil
     end
 end
 
+-- ИСПРАВЛЕНО: Поиск окон по структуре (точная копия логики 6locc)
 local function espScan()
     local seen={}
+
+    -- Killers
     for _,obj in ipairs(CollectionService:GetTagged("Killer")) do
         if obj~=LocalPlayer.Character then seen[obj]=true espUpdate(obj,"killer",Settings.esp.killer) end
     end
+
+    -- Survivors
     for _,plr in ipairs(Players:GetPlayers()) do
         if plr~=LocalPlayer and plr.Character and plr.Character.Parent then
             local isKiller=false
@@ -575,17 +610,19 @@ local function espScan()
             if not isKiller then seen[plr.Character]=true espUpdate(plr.Character,"survivor",Settings.esp.survivor) end
         end
     end
+
+    -- Pallets
     for _,obj in ipairs(CollectionService:GetTagged("pallet")) do seen[obj]=true espUpdate(obj,"pallet",Settings.esp.pallet) end
-    
-    -- FIX: Window/Vault detection by scanning map structure (like 6locc)
+
+    -- Windows/Vaults (структурное сканирование как у 6locc)
     local mapFolder = workspace:FindFirstChild("Map")
     local scanList = mapFolder and mapFolder:GetDescendants() or workspace:GetDescendants()
-    
+
     for _, obj in ipairs(scanList) do
         if obj:IsA("Model") or obj:IsA("Folder") then
             local name = obj.Name
             local isWindow = (name == "Window" or (name:lower()):find("window") or name == "Vault" or (name:lower()):find("vault"))
-            
+
             if isWindow then
                 local hasBottom, hasInvis, hasTrigger = false, false, false
                 for _, child in ipairs(obj:GetDescendants()) do
@@ -594,7 +631,7 @@ local function espScan()
                     elseif cname == "inviswall" then hasInvis = true
                     elseif cname == "vaulttrigger" then hasTrigger = true end
                 end
-                
+
                 if hasBottom and hasInvis and hasTrigger then
                     seen[obj] = true
                     espUpdate(obj, "window", Settings.esp.window)
@@ -602,25 +639,52 @@ local function espScan()
             end
         end
     end
-    
+
+    -- Альтернативный путь: поиск по VaultTrigger (точная копия 6locc)
+    for _, obj in ipairs(scanList) do
+        if obj:IsA("BasePart") and (obj.Name == "VaultTrigger" or (obj.Name:lower()):find("vaulttrigger")) then
+            local parent = obj.Parent
+            if parent and (parent:IsA("Model") or parent:IsA("Folder")) and not seen[parent] then
+                local hasBottom, hasInvis = false, false
+                for _, child in ipairs(parent:GetDescendants()) do
+                    local cname = child.Name:lower()
+                    if cname == "bottom" then hasBottom = true
+                    elseif cname == "inviswall" then hasInvis = true end
+                end
+                if hasBottom and hasInvis then
+                    seen[parent] = true
+                    espUpdate(parent, "window", Settings.esp.window)
+                end
+            end
+        end
+    end
+
+    -- Generators
     for _,obj in ipairs(CollectionService:GetTagged("Generator")) do
         if obj:GetAttribute("Completed") then espRemove(obj) else seen[obj]=true espUpdate(obj,"generator",Settings.esp.generator) end
     end
+
+    -- Hooks
     for _,obj in ipairs(CollectionService:GetTagged("Spike")) do seen[obj]=true espUpdate(obj,"hook",Settings.esp.hook) end
+
+    -- Zombies (Cure)
     if espCureActive() then
         for _,obj in ipairs(CollectionService:GetTagged("049-2")) do seen[obj]=true espUpdate(obj,"zombie",Settings.esp.zombie) end
     end
+
+    -- Удаление объектов которых больше нет
     for obj in pairs(espObjects) do
         if not seen[obj] or not obj or not obj.Parent then espRemove(obj) end
     end
 end
 
--- FIX 1: check espInGame() EVERY FRAME
+-- ИСПРАВЛЕНО: добавлено управление entry.box в RenderStepped
 espConn=RunService.RenderStepped:Connect(function()
     local inGame=espInGame()
     if not inGame then
         for _,e in pairs(espObjects) do
             if e.highlight then e.highlight.Enabled=false end
+            if e.box then e.box.Visible=false end
             if e.billboard then e.billboard.Enabled=false end
         end
         return
@@ -649,4 +713,4 @@ gui.Destroying:Connect(function()
     for obj in pairs(espObjects) do espRemove(obj) end
 end)
 
-print("[gw.cc] Loaded!")
+print("[gw.cc] Loaded! Stage 1 (Window/Vault fix) applied.")
