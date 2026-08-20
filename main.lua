@@ -56,7 +56,7 @@ local WW=small and math.clamp(math.floor(screenW*0.82),260,340) or 340
 local gui=new("ScreenGui",{Name="gwcc_UI",ResetOnSpawn=false,IgnoreGuiInset=true,DisplayOrder=9999,ZIndexBehavior=Enum.ZIndexBehavior.Sibling},uiParent)
 task.spawn(function() while task.wait(1) do if not gui.Parent then gui.Parent=uiParent end if not gui.Enabled then gui.Enabled=true end end end)
 local dim=new("Frame",{Name="Dim",BackgroundColor3=Color3.new(0,0,0),BackgroundTransparency=1,BorderSizePixel=0,Active=false,Size=UDim2.fromScale(1,1),ZIndex=5},gui)
-local blur; if MOTION.blur then pcall(function() blur=new("BlurEffect",{Name="gwcc_Blur",Size=0,Enabled:true},Lighting) end) end
+local blur; if MOTION.blur then pcall(function() blur=new("BlurEffect",{Name="gwcc_Blur",Size=0,Enabled=true},Lighting) end) end
 local function setBackdrop(on) if MOTION.dim then Motion.to(dim,"bg",E.smooth(),{BackgroundTransparency=on and 0.45 or 1}) end if blur then Motion.to(blur,"blur",E.smooth(),{Size=on and 14 or 0}) end end
 
 local welcomeTargetPos=UDim2.fromScale(0.5,0.5)
@@ -172,7 +172,7 @@ end
 local dragging,dragStart,startPos=false,nil,nil
 local minDragging,minDragStart,minStartPos,minMoved=false,nil,nil,false
 local minVel,lastMinPos,lastMinT=Vector2.zero,Vector2.zero,0
-local function startDrag(input) if input.UserInputType==Enum.UserInputType.MouseButton1 or input.UserInputType==Enum.UserInputType.Touch then dragging=true dragStart=input.Position startPos=panel.Position Motion.spring(panelScale,1.015,{stiffness=260,damping=26}) Motion.to(pShadow,"drag",E.smooth(),{ImageTransparency=0.35}) end end
+local function startDrag(input) if input.UserInputType==Enum.UserInputType.MouseButton1 or input.UserInputType==Enum.UserInputType.Touch then dragging=true dragStart=input.Position startPos=panel.Position Motion.spring(panelScale,1.015,{stiffness=260,damping:26}) Motion.to(pShadow,"drag",E.smooth(),{ImageTransparency=0.35}) end end
 panel.InputBegan:Connect(startDrag) header.InputBegan:Connect(startDrag) body.InputBegan:Connect(startDrag) nav.InputBegan:Connect(startDrag) content.InputBegan:Connect(startDrag)
 minBtn.InputBegan:Connect(function(input) if input.UserInputType==Enum.UserInputType.MouseButton1 or input.UserInputType==Enum.UserInputType.Touch then minDragging=true minMoved=false minDragStart=input.Position minStartPos=fabPos minVel=Vector2.zero lastMinPos=Vector2.new(input.Position.X,input.Position.Y) lastMinT=os.clock() stopIdle() Motion.press(minScale,0.16) Motion.to(minBtn,"color",E.micro(),{BackgroundColor3=C.MinP}) end end)
 UserInputService.InputEnded:Connect(function(input) if input.UserInputType~=Enum.UserInputType.MouseButton1 and input.UserInputType~=Enum.UserInputType.Touch then return end if dragging then dragging=false Motion.spring(panelScale,1,{stiffness=240,damping=20}) Motion.to(pShadow,"drag",E.smooth(),{ImageTransparency=menuVisible and 0.5 or 0.9}) end if minDragging then minDragging=false Motion.to(minBtn,"color",E.micro(),{BackgroundColor3=C.MinA}) if not minMoved then toggleMenu() Motion.spring(minScale,1,{impulse=1.1}) else local vp=vpSize() local pad=FAB/2+14 local projected=fabPos+minVel*0.12 local targetX=projected.X if MOTION.edgeSnap then targetX=(projected.X<vp.X*0.5) and pad or (vp.X-pad) end local targetY=math.clamp(projected.Y,pad,vp.Y-pad) fabPos=Vector2.new(targetX,targetY) Motion.to(minBtn,"pos",ti(0.45,ES.Back,ED.Out),{Position=UDim2.fromOffset(fabPos.X,fabPos.Y)}) end startIdle() end end)
@@ -319,7 +319,7 @@ if activePicker then activePicker.close() end
 local small=UI.small local h,s,v=cfg.color:ToHSV() local enabled=cfg.enabled and true or false
 local svH=small and 140 or 160 local pw=small and 210 or 240 local yHue=12+svH+12 local yPrev=yHue+16+12 local yEn=yPrev+28+10 local ph=yEn+30+12
 local backdrop=new("Frame",{Name="ColorPickerOverlay",BackgroundColor3=Color3.fromRGB(0,0,0),BackgroundTransparency=1,BorderSizePixel=0,Size=UDim2.fromScale(1,1),Active=true,ZIndex=100},gui)
-local dismiss=new("TextButton",{Name="Dismiss",Text="",AutoButtonColor=false,BackgroundTransparency=1,Size=UDim2.fromScale(1,1),ZIndex=100},backdrop)
+local dismiss=new("TextButton",{Name="Dismiss",Text="",AutoButtonColor:false,BackgroundTransparency=1,Size=UDim2.fromScale(1,1),ZIndex=100},backdrop)
 local pnl=new("Frame",{Name="PickerPanel",BackgroundColor3=C.Panel,BorderSizePixel=0,AnchorPoint=Vector2.new(0.5,0.5),Position=UDim2.fromScale(0.5,0.5),Size=UDim2.fromOffset(pw,ph),Active=true,ZIndex=101},backdrop)
 round(pnl,8) edge(pnl,C.StrkClr,1,0.15) dropShadow(pnl,30,0.55) local psc=scaleOf(pnl,0.85)
 local sv=new("Frame",{Name="SV",BackgroundColor3=Color3.fromHSV(h,1,1),BorderSizePixel=0,Position=UDim2.new(0,12,0,12),Size=UDim2.new(1,-24,0,svH),ClipsDescendants=true,ZIndex=102},pnl) round(sv,6)
