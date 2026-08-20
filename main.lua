@@ -1,6 +1,7 @@
 --[[
     gw.cc | All-in-One + ESP v5
     Fixes: Killer player check for lobby, window Model highlight without Adornee
+    Stage 1 Fix: Replaced tag-based window detection with structural map scanning.
 --]]
 
 local Players=game:GetService("Players")
@@ -503,7 +504,8 @@ local function espUpdate(obj,type,cfg)
     if not entry.highlight then
         entry.highlight=Instance.new("Highlight")
         entry.highlight.Name="gwcc_ESP"
-        entry.highlight.Parent=obj
+        entry.highlight.Adornee = obj -- Added Adornee for proper highlighting
+        entry.highlight.Parent = workspace -- Parent to workspace for better management
     end
     if not entry.billboard then
         entry.billboard=Instance.new("BillboardGui")
@@ -511,7 +513,8 @@ local function espUpdate(obj,type,cfg)
         entry.billboard.Size=UDim2.fromOffset(200,50)
         entry.billboard.StudsOffset=Vector3.new(0,3,0)
         entry.billboard.AlwaysOnTop=true
-        entry.billboard.Parent=obj
+        entry.billboard.Adornee = obj -- Added Adornee
+        entry.billboard.Parent = workspace -- Parent to workspace
         entry.label=Instance.new("TextLabel")
         entry.label.Size=UDim2.fromScale(1,1)
         entry.label.BackgroundTransparency=1
@@ -573,22 +576,33 @@ local function espScan()
         end
     end
     for _,obj in ipairs(CollectionService:GetTagged("pallet")) do seen[obj]=true espUpdate(obj,"pallet",Settings.esp.pallet) end
-    -- FIX 2: highlight parent Window Model directly (both tags)
-    local windowSeen={}
-    for _,part in ipairs(CollectionService:GetTagged("window")) do
-        local model=part.Parent
-        if model and model:IsA("Model") and not windowSeen[model] then
-            windowSeen[model]=true seen[model]=true
-            espUpdate(model,"window",Settings.esp.window)
+    
+    -- FIX: Window/Vault detection by scanning map structure (like 6locc)
+    local mapFolder = workspace:FindFirstChild("Map")
+    local scanList = mapFolder and mapFolder:GetDescendants() or workspace:GetDescendants()
+    
+    for _, obj in ipairs(scanList) do
+        if obj:IsA("Model") or obj:IsA("Folder") then
+            local name = obj.Name
+            local isWindow = (name == "Window" or (name:lower()):find("window") or name == "Vault" or (name:lower()):find("vault"))
+            
+            if isWindow then
+                local hasBottom, hasInvis, hasTrigger = false, false, false
+                for _, child in ipairs(obj:GetDescendants()) do
+                    local cname = child.Name:lower()
+                    if cname == "bottom" then hasBottom = true
+                    elseif cname == "inviswall" then hasInvis = true
+                    elseif cname == "vaulttrigger" then hasTrigger = true end
+                end
+                
+                if hasBottom and hasInvis and hasTrigger then
+                    seen[obj] = true
+                    espUpdate(obj, "window", Settings.esp.window)
+                end
+            end
         end
     end
-    for _,part in ipairs(CollectionService:GetTagged("VaultPoint")) do
-        local model=part.Parent
-        if model and model:IsA("Model") and not windowSeen[model] then
-            windowSeen[model]=true seen[model]=true
-            espUpdate(model,"window",Settings.esp.window)
-        end
-    end
+    
     for _,obj in ipairs(CollectionService:GetTagged("Generator")) do
         if obj:GetAttribute("Completed") then espRemove(obj) else seen[obj]=true espUpdate(obj,"generator",Settings.esp.generator) end
     end
