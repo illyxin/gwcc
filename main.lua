@@ -1,6 +1,6 @@
 --[[
     gw.cc | All-in-One + ESP v5
-    Fixes: Killer player check for lobby, window Model highlight without Adornee
+    Stage 1 Fix: Window/Vault ESP using BoxHandleAdornment attached to "Bottom" part.
 --]]
 
 local Players=game:GetService("Players")
@@ -497,68 +497,102 @@ local function espUpdate(obj,type,cfg)
     end
     local entry=espObjects[obj]
     if not entry then entry={} espObjects[obj]=entry end
-    if not entry.highlight then
-        entry.highlight=Instance.new("Highlight")
-        entry.highlight.Name="gwcc_ESP"
-        entry.highlight.Adornee = obj
-        entry.highlight.Parent = workspace
-    end
-    if not entry.billboard then
-        entry.billboard=Instance.new("BillboardGui")
-        entry.billboard.Name="gwcc_ESP_BB"
-        entry.billboard.Size=UDim2.fromOffset(200,50)
-        entry.billboard.StudsOffset=Vector3.new(0,3,0)
-        entry.billboard.AlwaysOnTop=true
-        entry.billboard.Adornee = obj
-        entry.billboard.Parent = workspace
-        entry.label=Instance.new("TextLabel")
-        entry.label.Size=UDim2.fromScale(1,1)
-        entry.label.BackgroundTransparency=1
-        entry.label.Font=Enum.Font.Code
-        entry.label.TextSize=14
-        entry.label.TextColor3=Color3.new(1,1,1)
-        entry.label.Parent=entry.billboard
-    end
-    entry.type=type
-    entry.cfg=cfg
-    if not cfg.enabled then
-        entry.highlight.Enabled=false
-        entry.billboard.Enabled=false
-        return
-    end
-    entry.highlight.Enabled=true
-    local fillColor=cfg.fill.color
-    if type=="survivor" and cfg.healthStatus then
-        if obj:GetAttribute("Knocked") then
-            fillColor=cfg.healthInjured.color
-        else
-            fillColor=cfg.healthHealthy.color
+
+    if type == "window" then
+        if not entry.box then
+            local targetPart = obj:FindFirstChild("Bottom", true)
+            if not targetPart or not targetPart:IsA("BasePart") then
+                targetPart = obj.PrimaryPart or obj:FindFirstChildWhichIsA("BasePart")
+            end
+            if targetPart then
+                entry.box = Instance.new("BoxHandleAdornment")
+                entry.box.Name = "gwcc_ESP_Box"
+                entry.box.AlwaysOnTop = true
+                entry.box.ZIndex = 5
+                entry.box.Adornee = targetPart
+                entry.box.Size = targetPart.Size + Vector3.new(0.2, 0.2, 0.2)
+                entry.box.Parent = workspace
+            end
+        end
+    else
+        if not entry.highlight then
+            entry.highlight = Instance.new("Highlight")
+            entry.highlight.Name = "gwcc_ESP"
+            entry.highlight.Adornee = obj
+            entry.highlight.Parent = workspace
         end
     end
-    entry.highlight.OutlineColor=cfg.outline.color
-    entry.highlight.OutlineTransparency=cfg.outline.enabled and 0.1 or 1
-    entry.highlight.FillColor=fillColor
-    entry.highlight.FillTransparency=cfg.fill.enabled and 0.6 or 1
-    local showText=cfg.name or cfg.distance or (type=="generator" and cfg.progress)
+
+    if not entry.billboard then
+        entry.billboard = Instance.new("BillboardGui")
+        entry.billboard.Name = "gwcc_ESP_BB"
+        entry.billboard.Size = UDim2.fromOffset(200,50)
+        entry.billboard.StudsOffset = Vector3.new(0,3,0)
+        entry.billboard.AlwaysOnTop = true
+        entry.billboard.Adornee = obj
+        entry.billboard.Parent = workspace
+        entry.label = Instance.new("TextLabel")
+        entry.label.Size = UDim2.fromScale(1,1)
+        entry.label.BackgroundTransparency = 1
+        entry.label.Font = Enum.Font.Code
+        entry.label.TextSize = 14
+        entry.label.TextColor3 = Color3.new(1,1,1)
+        entry.label.Parent = entry.billboard
+    end
+
+    entry.type = type
+    entry.cfg = cfg
+
+    if not cfg.enabled then
+        if entry.highlight then entry.highlight.Enabled = false end
+        if entry.box then entry.box.Visible = false end
+        entry.billboard.Enabled = false
+        return
+    end
+
+    local fillColor = cfg.fill.color
+    if type == "survivor" and cfg.healthStatus then
+        if obj:GetAttribute("Knocked") then
+            fillColor = cfg.healthInjured.color
+        else
+            fillColor = cfg.healthHealthy.color
+        end
+    end
+
+    if entry.highlight then
+        entry.highlight.Enabled = true
+        entry.highlight.OutlineColor = cfg.outline.color
+        entry.highlight.OutlineTransparency = cfg.outline.enabled and 0.1 or 1
+        entry.highlight.FillColor = fillColor
+        entry.highlight.FillTransparency = cfg.fill.enabled and 0.6 or 1
+    elseif entry.box then
+        entry.box.Visible = true
+        entry.box.Color3 = cfg.outline.color
+        entry.box.Transparency = cfg.outline.enabled and 0.1 or 1
+    end
+
+    local showText = cfg.name or cfg.distance or (type=="generator" and cfg.progress)
     if showText then
-        entry.billboard.Enabled=true
-        entry.label.TextColor3=cfg.outline.enabled and cfg.outline.color or cfg.fill.color
+        entry.billboard.Enabled = true
+        entry.label.TextColor3 = cfg.outline.enabled and cfg.outline.color or cfg.fill.color
     else
-        entry.billboard.Enabled=false
+        entry.billboard.Enabled = false
     end
 end
 
 local function espRemove(obj)
-    local e=espObjects[obj]
+    local e = espObjects[obj]
     if e then
         if e.highlight then e.highlight:Destroy() end
+        if e.box then e.box:Destroy() end
         if e.billboard then e.billboard:Destroy() end
-        espObjects[obj]=nil
+        espObjects[obj] = nil
     end
 end
 
 local function espScan()
-    local seen={}
+    local seen = {}
+
     for _,obj in ipairs(CollectionService:GetTagged("Killer")) do
         if obj~=LocalPlayer.Character then seen[obj]=true espUpdate(obj,"killer",Settings.esp.killer) end
     end
@@ -572,16 +606,14 @@ local function espScan()
         end
     end
     for _,obj in ipairs(CollectionService:GetTagged("pallet")) do seen[obj]=true espUpdate(obj,"pallet",Settings.esp.pallet) end
-    
-    -- Window/Vault: структурное сканирование (как у 6locc)
+
     local mapFolder = workspace:FindFirstChild("Map")
     local scanList = mapFolder and mapFolder:GetDescendants() or workspace:GetDescendants()
-    
+
     for _, obj in ipairs(scanList) do
         if obj:IsA("Model") or obj:IsA("Folder") then
-            local name = obj.Name
-            local isWindow = (name == "Window" or (name:lower()):find("window") or name == "Vault" or (name:lower()):find("vault"))
-            
+            local name = obj.Name:lower()
+            local isWindow = (name == "window" or name:find("window") or name == "vault" or name:find("vault"))
             if isWindow then
                 local hasBottom, hasInvis, hasTrigger = false, false, false
                 for _, child in ipairs(obj:GetDescendants()) do
@@ -590,7 +622,6 @@ local function espScan()
                     elseif cname == "inviswall" then hasInvis = true
                     elseif cname == "vaulttrigger" then hasTrigger = true end
                 end
-                
                 if hasBottom and hasInvis and hasTrigger then
                     seen[obj] = true
                     espUpdate(obj, "window", Settings.esp.window)
@@ -598,7 +629,7 @@ local function espScan()
             end
         end
     end
-    
+
     for _, obj in ipairs(scanList) do
         if obj:IsA("BasePart") and (obj.Name == "VaultTrigger" or (obj.Name:lower()):find("vaulttrigger")) then
             local parent = obj.Parent
@@ -616,7 +647,7 @@ local function espScan()
             end
         end
     end
-    
+
     for _,obj in ipairs(CollectionService:GetTagged("Generator")) do
         if obj:GetAttribute("Completed") then espRemove(obj) else seen[obj]=true espUpdate(obj,"generator",Settings.esp.generator) end
     end
@@ -634,6 +665,7 @@ espConn=RunService.RenderStepped:Connect(function()
     if not inGame then
         for _,e in pairs(espObjects) do
             if e.highlight then e.highlight.Enabled=false end
+            if e.box then e.box.Visible=false end
             if e.billboard then e.billboard.Enabled=false end
         end
         return
